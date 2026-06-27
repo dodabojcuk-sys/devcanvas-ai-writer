@@ -171,7 +171,7 @@ function buildStoryMemory(
   ];
 }
 
-function getNextWritingFlowState(input: string, hasStoryContext: boolean): Exclude<WritingFlowState, "idle" | "generating"> {
+function getNextWritingFlowState(input: string): Exclude<WritingFlowState, "idle" | "generating"> {
   const normalizedInput = input.toLowerCase();
 
   if (/\b(branch|choice|fork|alternative|what if)\b/.test(normalizedInput) || /分支|选择|岔路|另一种/.test(input)) {
@@ -182,7 +182,7 @@ function getNextWritingFlowState(input: string, hasStoryContext: boolean): Exclu
     return "refining";
   }
 
-  return hasStoryContext ? "continuing_story" : "continuing_story";
+  return "continuing_story";
 }
 
 function buildContinuationTrigger({
@@ -423,7 +423,7 @@ export default function TianyiImmersiveWorkspace() {
   const handleGenerate = async () => {
     const trimmedInput = inputText.trim();
     const kernelProcessor = getKernelProcessor();
-    const nextFlowState = getNextWritingFlowState(trimmedInput, storyContext.length > 0 || streamedText.trim().length > 0);
+    const nextFlowState = getNextWritingFlowState(trimmedInput);
 
     if (!trimmedInput || flowState === "generating") {
       return;
