@@ -1,0 +1,3 @@
+- Goal: init system structure
+- Scope: repository skeleton only
+- No logic changes
