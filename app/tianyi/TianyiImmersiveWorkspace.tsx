@@ -40,6 +40,10 @@ const defaultSessionState: KernelSessionState = {
   continuity: "Continuity preview: waiting for kernel output",
 };
 
+const narrativeShellStyle: CSSProperties = {
+  gridTemplateColumns: "1fr",
+};
+
 const narrativeFlowStyle: CSSProperties = {
   width: "min(100%, 1040px)",
   margin: "0 auto",
@@ -361,7 +365,7 @@ export default function TianyiImmersiveWorkspace() {
   };
 
   return (
-    <main className="dcw-tianyi-workspace">
+    <main className="dcw-tianyi-workspace" style={narrativeShellStyle}>
       <div style={narrativeFlowStyle}>
         <AITianyiCore
           inputText={inputText}
