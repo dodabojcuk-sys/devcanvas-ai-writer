@@ -4,7 +4,7 @@ import type { CSSProperties, FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import type { DevCanvasSkill } from "../../types/skill";
 
-type FlowState = "idle" | "drafting" | "ready";
+type WritingFlowState = "idle" | "generating" | "continuing_story" | "branching" | "refining";
 
 type KernelEventCandidate = {
   type: "event_line_candidate";
@@ -39,6 +39,14 @@ const starterSuggestions = [
 const defaultSessionState: KernelSessionState = {
   chapter: "unplaced scene",
   continuity: "waiting for the next thread",
+};
+
+const flowStateLabel: Record<WritingFlowState, string> = {
+  idle: "ready to enter the story",
+  generating: "the story is moving",
+  continuing_story: "continuing the thread",
+  branching: "holding a branch",
+  refining: "refining the passage",
 };
 
 const inactiveSkillSlot: DevCanvasSkill = {
@@ -118,47 +126,101 @@ function normalizeKernelResponse(response: KernelStructuredResponse): KernelStru
 
 function buildNextBeatHints(events: KernelEventCandidate[]) {
   if (!events.length) {
-    return ["A structural hint will appear here when the scene exposes its next turn."];
+    return ["A quiet structure signal will appear when the scene exposes its next turn."];
   }
 
-  return events.slice(0, 2).map((event) => `${event.title} (${Math.round(event.confidence * 100)}% confidence)`);
+  return events.slice(0, 2).map((event) => `Possible turn: ${event.title} (${Math.round(event.confidence * 100)}% confidence)`);
 }
 
-function buildLineWhispers(kernelResponse: KernelStructuredResponse | null) {
+function buildLineWhispers(kernelResponse: KernelStructuredResponse | null, flowState: WritingFlowState) {
   const sourceSuggestions = kernelResponse?.suggestions.length ? kernelResponse.suggestions : starterSuggestions;
   return sourceSuggestions.slice(0, 3).map((suggestion, index) => ({
-    label: index === 0 ? "next line" : index === 1 ? "texture" : "pressure",
+    label: index === 0 ? "nuwa rewrite" : index === 1 ? "style variation" : flowState === "refining" ? "sentence polish" : "pressure",
     text: suggestion,
   }));
 }
 
-function buildStoryMemory(kernelResponse: KernelStructuredResponse | null, sessionState: KernelSessionState) {
+function buildEvidenceSignals(kernelResponse: KernelStructuredResponse | null, storyContext: string[]) {
+  const eventCount = kernelResponse?.events.length ?? 0;
+  const contextCount = storyContext.length;
+
+  if (!contextCount && !eventCount) {
+    return ["Consistency signal: background memory is waiting for story context."];
+  }
+
+  return [
+    eventCount > 0
+      ? `Consistency signal: ${eventCount} structural cue(s) are being watched.`
+      : "Consistency signal: no contradiction surfaced in this passage.",
+    contextCount > 0 ? `Context carry: ${contextCount} previous beat(s) remain active.` : "Context carry: first passage.",
+  ];
+}
+
+function buildStoryMemory(
+  kernelResponse: KernelStructuredResponse | null,
+  sessionState: KernelSessionState,
+  storyContext: string[],
+) {
   const eventCount = kernelResponse?.events.length ?? 0;
 
   return [
     `Chapter: ${sessionState.chapter}`,
     `Continuity: ${sessionState.continuity}`,
+    `Flow memory: ${storyContext.length ? `${storyContext.length} carried beat(s)` : "first beat"}`,
     eventCount > 0 ? `${eventCount} quiet story turn(s) are being held in memory.` : "No story turn has surfaced yet.",
   ];
+}
+
+function getNextWritingFlowState(input: string, hasStoryContext: boolean): Exclude<WritingFlowState, "idle" | "generating"> {
+  const normalizedInput = input.toLowerCase();
+
+  if (/\b(branch|choice|fork|alternative|what if)\b/.test(normalizedInput) || /分支|选择|岔路|另一种/.test(input)) {
+    return "branching";
+  }
+
+  if (/\b(rewrite|revise|polish|refine|tighten)\b/.test(normalizedInput) || /改写|重写|润色|修订|精修/.test(input)) {
+    return "refining";
+  }
+
+  return hasStoryContext ? "continuing_story" : "continuing_story";
+}
+
+function buildContinuationTrigger({
+  input,
+  streamedText,
+  storyContext,
+  sessionState,
+}: {
+  input: string;
+  streamedText: string;
+  storyContext: string[];
+  sessionState: KernelSessionState;
+}) {
+  const recentContext = storyContext.slice(-3).join("\n\n");
+  const currentDraftTail = streamedText.trim().slice(-900);
+
+  return [
+    "Continue this story as the next narrative beat, not as an answer.",
+    recentContext ? `Previous carried context:\n${recentContext}` : null,
+    currentDraftTail ? `Current draft tail:\n${currentDraftTail}` : null,
+    `Session: ${sessionState.chapter} / ${sessionState.continuity}`,
+    `Continuation trigger:\n${input}`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 function SessionIndicator({
   flowState,
   sessionState,
 }: {
-  flowState: FlowState;
+  flowState: WritingFlowState;
   sessionState: KernelSessionState;
 }) {
-  const label = {
-    idle: "ready to continue",
-    drafting: "following the thread",
-    ready: "thread held",
-  }[flowState];
-
   return (
     <div className="dcw-session-indicator" aria-live="polite">
       <span className={`dcw-session-dot dcw-session-dot-${flowState}`} />
-      {label} - {sessionState.chapter} - {sessionState.continuity}
+      {flowStateLabel[flowState]} - {sessionState.chapter} - {sessionState.continuity}
     </div>
   );
 }
@@ -183,20 +245,20 @@ function WritingInput({
       }}
     >
       <label className="dcw-input-label" htmlFor="tianyi-writing-input">
-        Continue the story
+        Push the story forward
       </label>
       <textarea
         id="tianyi-writing-input"
         className="dcw-input-field"
         value={inputText}
         onChange={(event) => onInputChange(event.target.value)}
-        placeholder="Write the next image, decision, or unfinished sentence."
+        placeholder="Add the next image, decision, branch, or rewrite impulse."
         rows={6}
       />
       <div className="dcw-input-actions">
-        <span className="dcw-input-hint">The assistant will continue the draft without opening another system.</span>
+        <span className="dcw-input-hint">Each trigger carries the previous draft forward without opening another system.</span>
         <button className="dcw-generate-button" type="submit" disabled={isGenerating}>
-          {isGenerating ? "Writing..." : "Continue"}
+          {isGenerating ? "Writing..." : "Continue flow"}
         </button>
       </div>
     </form>
@@ -212,8 +274,8 @@ function WritingCanvas({ streamedText, isWriting }: { streamedText: string; isWr
         </div>
       ) : (
         <div className="dcw-empty-canvas">
-          <p>The page is listening.</p>
-          <span>Start with an image, a choice, or a line of dialogue.</span>
+          <p>The story is waiting for its first motion.</p>
+          <span>Start with an image, a choice, or a line of dialogue. The next trigger will keep carrying it.</span>
         </div>
       )}
     </section>
@@ -223,16 +285,18 @@ function WritingCanvas({ streamedText, isWriting }: { streamedText: string; isWr
 function NarrativeUndercurrent({
   nextBeats,
   lineWhispers,
+  evidenceSignals,
   storyMemory,
 }: {
   nextBeats: string[];
   lineWhispers: { label: string; text: string }[];
+  evidenceSignals: string[];
   storyMemory: string[];
 }) {
   return (
     <section style={ambienceStyle} aria-label="Writing flow suggestions">
       <div style={quietHintStyle}>
-        <span className="dcw-panel-eyebrow">the next turn</span>
+        <span className="dcw-panel-eyebrow">implicit structure</span>
         <div style={whisperGridStyle}>
           {nextBeats.map((hint) => (
             <div style={whisperStyle} key={hint} role="note">
@@ -242,7 +306,7 @@ function NarrativeUndercurrent({
         </div>
       </div>
       <div style={quietHintStyle}>
-        <span className="dcw-panel-eyebrow">line-level drift</span>
+        <span className="dcw-panel-eyebrow">inline rewrite drift</span>
         <div style={whisperGridStyle}>
           {lineWhispers.map((whisper) => (
             <div style={whisperStyle} key={`${whisper.label}-${whisper.text}`} role="note">
@@ -254,8 +318,13 @@ function NarrativeUndercurrent({
         </div>
       </div>
       <div style={quietHintStyle}>
-        <span className="dcw-panel-eyebrow">story memory</span>
+        <span className="dcw-panel-eyebrow">background continuity</span>
         <div style={whisperGridStyle}>
+          {evidenceSignals.map((signal) => (
+            <div style={whisperStyle} key={signal} role="note">
+              {signal}
+            </div>
+          ))}
           {storyMemory.map((memory) => (
             <div style={whisperStyle} key={memory} role="note">
               {memory}
@@ -282,7 +351,7 @@ function AITianyiCore({
 }: {
   inputText: string;
   streamedText: string;
-  flowState: FlowState;
+  flowState: WritingFlowState;
   sessionState: KernelSessionState;
   onInputChange: (value: string) => void;
   onGenerate: () => void;
@@ -292,11 +361,11 @@ function AITianyiCore({
       <SessionIndicator flowState={flowState} sessionState={sessionState} />
       <WritingInput
         inputText={inputText}
-        isGenerating={flowState === "drafting"}
+        isGenerating={flowState === "generating"}
         onInputChange={onInputChange}
         onGenerate={onGenerate}
       />
-      <WritingCanvas streamedText={streamedText} isWriting={flowState === "drafting"} />
+      <WritingCanvas streamedText={streamedText} isWriting={flowState === "generating"} />
     </section>
   );
 }
@@ -305,8 +374,9 @@ export default function TianyiImmersiveWorkspace() {
   const [inputText, setInputText] = useState("");
   const [streamedText, setStreamedText] = useState("");
   const [kernelResponse, setKernelResponse] = useState<KernelStructuredResponse | null>(null);
-  const [flowState, setFlowState] = useState<FlowState>("idle");
+  const [flowState, setFlowState] = useState<WritingFlowState>("idle");
   const [sessionState, setSessionState] = useState<KernelSessionState>(defaultSessionState);
+  const [storyContext, setStoryContext] = useState<string[]>([]);
   const streamTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -317,7 +387,7 @@ export default function TianyiImmersiveWorkspace() {
     };
   }, []);
 
-  const streamResponse = (response: KernelStructuredResponse) => {
+  const streamResponse = (response: KernelStructuredResponse, nextFlowState: Exclude<WritingFlowState, "idle" | "generating">) => {
     const sentences = response.text
       .split(/(?<=[.!?])\s+/)
       .map((sentence) => sentence.trim())
@@ -331,11 +401,18 @@ export default function TianyiImmersiveWorkspace() {
       if (!segment) {
         setKernelResponse(response);
         setSessionState(response.sessionState);
-        setFlowState("ready");
+        setStoryContext((current) => [...current, response.text].slice(-5));
+        setFlowState(nextFlowState);
         return;
       }
 
-      setStreamedText((current) => (current ? `${current} ${segment}` : segment));
+      setStreamedText((current) => {
+        if (!current) {
+          return segment;
+        }
+
+        return nextSegmentIndex === 0 ? `${current}\n\n${segment}` : `${current} ${segment}`;
+      });
       nextSegmentIndex += 1;
       streamTimer.current = setTimeout(pushNextSegment, 300);
     };
@@ -346,8 +423,9 @@ export default function TianyiImmersiveWorkspace() {
   const handleGenerate = async () => {
     const trimmedInput = inputText.trim();
     const kernelProcessor = getKernelProcessor();
+    const nextFlowState = getNextWritingFlowState(trimmedInput, storyContext.length > 0 || streamedText.trim().length > 0);
 
-    if (!trimmedInput || flowState === "drafting") {
+    if (!trimmedInput || flowState === "generating") {
       return;
     }
 
@@ -358,32 +436,46 @@ export default function TianyiImmersiveWorkspace() {
     setKernelResponse(null);
     setSessionState({
       chapter: "the current passage",
-      continuity: "finding the next thread",
+      continuity: storyContext.length ? "carrying the previous thread" : "finding the first thread",
     });
-    setStreamedText("");
 
     if (!kernelProcessor) {
-      setStreamedText("The story cannot continue yet because processDevCanvasProductInput is not available in this UI runtime.");
+      setStreamedText((current) =>
+        current
+          ? `${current}\n\n[The story cannot continue yet because processDevCanvasProductInput is not available in this UI runtime.]`
+          : "The story cannot continue yet because processDevCanvasProductInput is not available in this UI runtime.",
+      );
       setSessionState({
         chapter: "unavailable passage",
         continuity: "kernel interface missing",
       });
-      setFlowState("ready");
+      setFlowState(nextFlowState);
       return;
     }
 
-    setFlowState("drafting");
+    setFlowState("generating");
 
     try {
-      const response = normalizeKernelResponse(await kernelProcessor(trimmedInput));
-      streamResponse(response);
+      const continuationTrigger = buildContinuationTrigger({
+        input: trimmedInput,
+        streamedText,
+        storyContext,
+        sessionState,
+      });
+      const response = normalizeKernelResponse(await kernelProcessor(continuationTrigger));
+      setInputText("");
+      streamResponse(response, nextFlowState);
     } catch (error) {
-      setStreamedText(error instanceof Error ? error.message : "The continuation could not be written from the current kernel output.");
+      setStreamedText((current) => {
+        const message =
+          error instanceof Error ? error.message : "The continuation could not be written from the current kernel output.";
+        return current ? `${current}\n\n[${message}]` : message;
+      });
       setSessionState({
         chapter: "interrupted passage",
         continuity: "output not rendered",
       });
-      setFlowState("ready");
+      setFlowState(nextFlowState);
     }
   };
 
@@ -400,8 +492,9 @@ export default function TianyiImmersiveWorkspace() {
         />
         <NarrativeUndercurrent
           nextBeats={buildNextBeatHints(kernelResponse?.events ?? [])}
-          lineWhispers={buildLineWhispers(kernelResponse)}
-          storyMemory={buildStoryMemory(kernelResponse, sessionState)}
+          lineWhispers={buildLineWhispers(kernelResponse, flowState)}
+          evidenceSignals={buildEvidenceSignals(kernelResponse, storyContext)}
+          storyMemory={buildStoryMemory(kernelResponse, sessionState, storyContext)}
         />
       </div>
     </main>
