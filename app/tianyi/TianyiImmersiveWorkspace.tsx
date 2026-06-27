@@ -23,6 +23,12 @@ type KernelStructuredResponse = {
   sessionState: KernelSessionState;
 };
 
+type KernelProcessor = (input: string) => KernelStructuredResponse | Promise<KernelStructuredResponse>;
+
+type KernelBridge = typeof globalThis & {
+  processDevCanvasProductInput?: unknown;
+};
+
 const starterSuggestions = [
   "Clarify the protagonist's immediate goal.",
   "Turn the scene into sensory prose.",
@@ -31,39 +37,22 @@ const starterSuggestions = [
 
 const defaultSessionState: KernelSessionState = {
   chapter: "Chapter preview: unassigned",
-  continuity: "Continuity preview: local only",
+  continuity: "Continuity preview: waiting for kernel output",
 };
 
-function createKernelStructuredResponse(input: string): KernelStructuredResponse {
-  const compactInput = input.length > 120 ? `${input.slice(0, 117)}...` : input;
+function getKernelProcessor(): KernelProcessor | null {
+  const candidate = (globalThis as KernelBridge).processDevCanvasProductInput;
+  return typeof candidate === "function" ? (candidate as KernelProcessor) : null;
+}
 
+function normalizeKernelResponse(response: KernelStructuredResponse): KernelStructuredResponse {
   return {
-    text: [
-      "AI Tianyi kernel-shaped preview",
-      "The input has been treated as a scene transition request. The next paragraph should stay close to the character's active choice, then let the obstacle surface through action instead of explanation.",
-      `Draft anchor: ${compactInput}`,
-      "Suggested continuation: The character notices the cost of the decision before anyone else names it. That pause gives the scene a clean hinge into the next beat.",
-    ].join("\n\n"),
-    suggestions: [
-      "Sharpen the character's next concrete action.",
-      "Carry one sensory detail into the following paragraph.",
-      "Mark the unresolved tension before closing the beat.",
-    ],
-    events: [
-      {
-        type: "event_line_candidate",
-        title: "Scene intent shifts from planning to visible consequence",
-        confidence: 0.82,
-      },
-      {
-        type: "event_line_candidate",
-        title: "Continuity hook created around the character's delayed admission",
-        confidence: 0.74,
-      },
-    ],
+    text: response.text || "Kernel returned no text output.",
+    suggestions: Array.isArray(response.suggestions) ? response.suggestions : [],
+    events: Array.isArray(response.events) ? response.events : [],
     sessionState: {
-      chapter: "Chapter preview: current drafting node",
-      continuity: "Continuity preview: cause-effect chain intact",
+      chapter: response.sessionState?.chapter || "Chapter preview: kernel output",
+      continuity: response.sessionState?.continuity || "Continuity preview: kernel output received",
     },
   };
 }
@@ -77,8 +66,8 @@ function SessionIndicator({
 }) {
   const label = {
     idle: "Local session idle",
-    drafting: "Kernel-shaped preview streaming",
-    ready: "Kernel-shaped preview ready",
+    drafting: "Kernel output streaming",
+    ready: "Kernel output ready",
   }[flowState];
 
   return (
@@ -120,9 +109,9 @@ function WritingInput({
         rows={6}
       />
       <div className="dcw-input-actions">
-        <span className="dcw-input-hint">UI-level kernel structure simulation only.</span>
+        <span className="dcw-input-hint">UI binds to processDevCanvasProductInput output only.</span>
         <button className="dcw-generate-button" type="submit" disabled={isGenerating}>
-          {isGenerating ? "Streaming..." : "Generate structured preview"}
+          {isGenerating ? "Streaming..." : "Generate kernel draft"}
         </button>
       </div>
     </form>
@@ -137,7 +126,7 @@ function WritingCanvas({ streamedText }: { streamedText: string }) {
       ) : (
         <div className="dcw-empty-canvas">
           <p>Writing area is ready.</p>
-          <span>Enter a scene idea to render a local kernel-shaped response.</span>
+          <span>Enter a scene idea to render kernel output when the interface is available.</span>
         </div>
       )}
     </section>
@@ -146,19 +135,21 @@ function WritingCanvas({ streamedText }: { streamedText: string }) {
 
 function AISuggestionPanel({
   kernelResponse,
+  selectedSuggestion,
   onUseSuggestion,
 }: {
   kernelResponse: KernelStructuredResponse | null;
+  selectedSuggestion: string;
   onUseSuggestion: (value: string) => void;
 }) {
-  const suggestions = kernelResponse?.suggestions ?? starterSuggestions;
+  const suggestions = kernelResponse?.suggestions.length ? kernelResponse.suggestions : starterSuggestions;
   const events = kernelResponse?.events ?? [];
 
   return (
     <aside className="dcw-suggestion-panel" aria-label="AI suggestion panel">
       <div>
-        <p className="dcw-panel-eyebrow">Structured preview</p>
-        <h2>Kernel-shaped guidance</h2>
+        <p className="dcw-panel-eyebrow">Kernel output</p>
+        <h2>Structured guidance</h2>
       </div>
       <div className="dcw-suggestion-list">
         {suggestions.map((suggestion) => (
@@ -169,6 +160,7 @@ function AISuggestionPanel({
             onClick={() => onUseSuggestion(suggestion)}
           >
             {suggestion}
+            {selectedSuggestion === suggestion ? " - selected locally" : ""}
           </button>
         ))}
       </div>
@@ -190,6 +182,7 @@ export default function TianyiImmersiveWorkspace() {
   const [inputText, setInputText] = useState("");
   const [streamedText, setStreamedText] = useState("");
   const [kernelResponse, setKernelResponse] = useState<KernelStructuredResponse | null>(null);
+  const [selectedSuggestion, setSelectedSuggestion] = useState("");
   const [flowState, setFlowState] = useState<FlowState>("idle");
   const [sessionState, setSessionState] = useState<KernelSessionState>(defaultSessionState);
   const streamTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -224,8 +217,9 @@ export default function TianyiImmersiveWorkspace() {
     pushNextSegment();
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     const trimmedInput = inputText.trim();
+    const kernelProcessor = getKernelProcessor();
 
     if (!trimmedInput || flowState === "drafting") {
       return;
@@ -235,19 +229,41 @@ export default function TianyiImmersiveWorkspace() {
       clearTimeout(streamTimer.current);
     }
 
-    const response = createKernelStructuredResponse(trimmedInput);
-    setFlowState("drafting");
     setKernelResponse(null);
+    setSelectedSuggestion("");
     setSessionState({
       chapter: "Chapter preview: reading input",
-      continuity: "Continuity preview: evaluating transition",
+      continuity: "Continuity preview: waiting for kernel output",
     });
     setStreamedText("");
-    streamResponse(response);
+
+    if (!kernelProcessor) {
+      setStreamedText("processDevCanvasProductInput is not available in this UI runtime.");
+      setSessionState({
+        chapter: "Chapter preview: unavailable",
+        continuity: "Continuity preview: kernel interface missing",
+      });
+      setFlowState("ready");
+      return;
+    }
+
+    setFlowState("drafting");
+
+    try {
+      const response = normalizeKernelResponse(await kernelProcessor(trimmedInput));
+      streamResponse(response);
+    } catch (error) {
+      setStreamedText(error instanceof Error ? error.message : "Kernel output binding failed.");
+      setSessionState({
+        chapter: "Chapter preview: kernel error",
+        continuity: "Continuity preview: output not rendered",
+      });
+      setFlowState("ready");
+    }
   };
 
   const handleUseSuggestion = (suggestion: string) => {
-    setInputText((current) => (current ? `${current}\n\n${suggestion}` : suggestion));
+    setSelectedSuggestion(suggestion);
   };
 
   return (
@@ -262,7 +278,11 @@ export default function TianyiImmersiveWorkspace() {
         />
         <WritingCanvas streamedText={streamedText} />
       </section>
-      <AISuggestionPanel kernelResponse={kernelResponse} onUseSuggestion={handleUseSuggestion} />
+      <AISuggestionPanel
+        kernelResponse={kernelResponse}
+        selectedSuggestion={selectedSuggestion}
+        onUseSuggestion={handleUseSuggestion}
+      />
     </main>
   );
 }
