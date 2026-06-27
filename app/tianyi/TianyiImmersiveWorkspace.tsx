@@ -30,14 +30,14 @@ type KernelBridge = typeof globalThis & {
 };
 
 const starterSuggestions = [
-  "Clarify the protagonist's immediate goal.",
-  "Turn the scene into sensory prose.",
-  "Add conflict without changing the plot.",
+  "Let the next sentence reveal what the character wants before explaining why.",
+  "Keep one sensory detail moving through the paragraph.",
+  "Let the tension surface as an action, not a label.",
 ];
 
 const defaultSessionState: KernelSessionState = {
-  chapter: "Chapter preview: unassigned",
-  continuity: "Continuity preview: waiting for kernel output",
+  chapter: "unplaced scene",
+  continuity: "waiting for the next thread",
 };
 
 const narrativeShellStyle: CSSProperties = {
@@ -45,39 +45,48 @@ const narrativeShellStyle: CSSProperties = {
 };
 
 const narrativeFlowStyle: CSSProperties = {
-  width: "min(100%, 1040px)",
+  width: "min(100%, 980px)",
   margin: "0 auto",
   display: "grid",
   gridTemplateColumns: "1fr",
   gap: 18,
 };
 
-const inlineLayerStackStyle: CSSProperties = {
+const ambienceStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr",
-  gap: 12,
-};
-
-const inlineLayerStyle: CSSProperties = {
-  border: "1px solid #d7d0c1",
-  borderRadius: 8,
-  background: "#fffdf8",
-  padding: 16,
-};
-
-const inlinePreviewGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
   gap: 10,
 };
 
-const inlinePreviewItemStyle: CSSProperties = {
-  border: "1px solid #cbd8cd",
+const quietHintStyle: CSSProperties = {
+  borderLeft: "2px solid #cbd8cd",
+  background: "rgb(255 253 248 / 72%)",
+  color: "#445148",
+  padding: "10px 0 10px 14px",
+  lineHeight: 1.55,
+  transition: "opacity 240ms ease, transform 240ms ease",
+};
+
+const whisperGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: 8,
+};
+
+const whisperStyle: CSSProperties = {
+  border: "1px solid rgb(203 216 205 / 70%)",
   borderRadius: 8,
-  background: "#eef3ec",
-  color: "#26342c",
-  padding: 12,
-  lineHeight: 1.5,
+  background: "rgb(238 243 236 / 58%)",
+  color: "#354139",
+  padding: 11,
+  lineHeight: 1.55,
+  transition: "background 220ms ease, opacity 220ms ease, transform 220ms ease",
+};
+
+const outputBlendStyle: CSSProperties = {
+  opacity: 1,
+  transform: "translateY(0)",
+  transition: "opacity 260ms ease, transform 260ms ease",
 };
 
 function getKernelProcessor(): KernelProcessor | null {
@@ -87,40 +96,39 @@ function getKernelProcessor(): KernelProcessor | null {
 
 function normalizeKernelResponse(response: KernelStructuredResponse): KernelStructuredResponse {
   return {
-    text: response.text || "Kernel returned no text output.",
+    text: response.text || "The scene waits for its next sentence.",
     suggestions: Array.isArray(response.suggestions) ? response.suggestions : [],
     events: Array.isArray(response.events) ? response.events : [],
     sessionState: {
-      chapter: response.sessionState?.chapter || "Chapter preview: kernel output",
-      continuity: response.sessionState?.continuity || "Continuity preview: kernel output received",
+      chapter: response.sessionState?.chapter || "current scene",
+      continuity: response.sessionState?.continuity || "story thread held",
     },
   };
 }
 
-function buildNuwaPreviews(kernelResponse: KernelStructuredResponse | null) {
+function buildNextBeatHints(events: KernelEventCandidate[]) {
+  if (!events.length) {
+    return ["A structural hint will appear here when the scene exposes its next turn."];
+  }
+
+  return events.slice(0, 2).map((event) => `${event.title} (${Math.round(event.confidence * 100)}% confidence)`);
+}
+
+function buildLineWhispers(kernelResponse: KernelStructuredResponse | null) {
   const sourceSuggestions = kernelResponse?.suggestions.length ? kernelResponse.suggestions : starterSuggestions;
   return sourceSuggestions.slice(0, 3).map((suggestion, index) => ({
-    label: index === 0 ? "Rewrite direction" : index === 1 ? "Style variation" : "Inline polish",
+    label: index === 0 ? "next line" : index === 1 ? "texture" : "pressure",
     text: suggestion,
   }));
 }
 
-function buildEvidenceInsights(kernelResponse: KernelStructuredResponse | null, sessionState: KernelSessionState) {
+function buildStoryMemory(kernelResponse: KernelStructuredResponse | null, sessionState: KernelSessionState) {
   const eventCount = kernelResponse?.events.length ?? 0;
 
   return [
-    {
-      label: "Setting continuity",
-      text: sessionState.continuity,
-    },
-    {
-      label: "Fact reference",
-      text: eventCount > 0 ? `${eventCount} event candidate(s) available for later evidence review.` : "No event evidence surfaced yet.",
-    },
-    {
-      label: "Conflict check",
-      text: kernelResponse ? "No blocking setting conflict reported by the current UI-bound output." : "Waiting for kernel output before checking story consistency.",
-    },
+    `Chapter: ${sessionState.chapter}`,
+    `Continuity: ${sessionState.continuity}`,
+    eventCount > 0 ? `${eventCount} quiet story turn(s) are being held in memory.` : "No story turn has surfaced yet.",
   ];
 }
 
@@ -132,9 +140,9 @@ function SessionIndicator({
   sessionState: KernelSessionState;
 }) {
   const label = {
-    idle: "Local session idle",
-    drafting: "Kernel output streaming",
-    ready: "Kernel output ready",
+    idle: "ready to continue",
+    drafting: "following the thread",
+    ready: "thread held",
   }[flowState];
 
   return (
@@ -165,89 +173,85 @@ function WritingInput({
       }}
     >
       <label className="dcw-input-label" htmlFor="tianyi-writing-input">
-        AI Tianyi writing input
+        Continue the story
       </label>
       <textarea
         id="tianyi-writing-input"
         className="dcw-input-field"
         value={inputText}
         onChange={(event) => onInputChange(event.target.value)}
-        placeholder="Write the next scene beat, paragraph idea, or revision request."
+        placeholder="Write the next image, decision, or unfinished sentence."
         rows={6}
       />
       <div className="dcw-input-actions">
-        <span className="dcw-input-hint">UI binds to processDevCanvasProductInput output only.</span>
+        <span className="dcw-input-hint">The assistant will continue the draft without opening another system.</span>
         <button className="dcw-generate-button" type="submit" disabled={isGenerating}>
-          {isGenerating ? "Streaming..." : "Generate kernel draft"}
+          {isGenerating ? "Writing..." : "Continue"}
         </button>
       </div>
     </form>
   );
 }
 
-function WritingCanvas({ streamedText }: { streamedText: string }) {
+function WritingCanvas({ streamedText, isWriting }: { streamedText: string; isWriting: boolean }) {
   return (
     <section className="dcw-writing-canvas" aria-label="Writing canvas">
       {streamedText ? (
-        <pre className="dcw-output-text">{streamedText}</pre>
+        <div style={{ ...outputBlendStyle, opacity: isWriting ? 0.94 : 1 }}>
+          <pre className="dcw-output-text">{streamedText}</pre>
+        </div>
       ) : (
         <div className="dcw-empty-canvas">
-          <p>Writing area is ready.</p>
-          <span>Enter a scene idea to render kernel output when the interface is available.</span>
+          <p>The page is listening.</p>
+          <span>Start with an image, a choice, or a line of dialogue.</span>
         </div>
       )}
     </section>
   );
 }
 
-function EventLinePreviewLayer({ events }: { events: KernelEventCandidate[] }) {
+function NarrativeUndercurrent({
+  nextBeats,
+  lineWhispers,
+  storyMemory,
+}: {
+  nextBeats: string[];
+  lineWhispers: { label: string; text: string }[];
+  storyMemory: string[];
+}) {
   return (
-    <section style={inlineLayerStyle} aria-label="EventLine preview layer">
-      <p className="dcw-panel-eyebrow">EventLine Preview Layer</p>
-      <div style={inlinePreviewGridStyle}>
-        {events.length > 0 ? (
-          events.map((event) => (
-            <div style={inlinePreviewItemStyle} key={event.title} role="note">
-              {event.title} - confidence {Math.round(event.confidence * 100)}%
+    <section style={ambienceStyle} aria-label="Writing flow suggestions">
+      <div style={quietHintStyle}>
+        <span className="dcw-panel-eyebrow">the next turn</span>
+        <div style={whisperGridStyle}>
+          {nextBeats.map((hint) => (
+            <div style={whisperStyle} key={hint} role="note">
+              {hint}
             </div>
-          ))
-        ) : (
-          <div style={inlinePreviewItemStyle}>Event suggestions will surface here without becoming a navigation entry.</div>
-        )}
+          ))}
+        </div>
       </div>
-    </section>
-  );
-}
-
-function NuwaSuggestionLayer({ previews }: { previews: { label: string; text: string }[] }) {
-  return (
-    <section style={inlineLayerStyle} aria-label="Nuwa suggestion layer">
-      <p className="dcw-panel-eyebrow">Nuwa Suggestion Layer</p>
-      <div style={inlinePreviewGridStyle}>
-        {previews.map((preview) => (
-          <div style={inlinePreviewItemStyle} key={`${preview.label}-${preview.text}`} role="note">
-            <strong>{preview.label}</strong>
-            <br />
-            {preview.text}
-          </div>
-        ))}
+      <div style={quietHintStyle}>
+        <span className="dcw-panel-eyebrow">line-level drift</span>
+        <div style={whisperGridStyle}>
+          {lineWhispers.map((whisper) => (
+            <div style={whisperStyle} key={`${whisper.label}-${whisper.text}`} role="note">
+              <strong>{whisper.label}</strong>
+              <br />
+              {whisper.text}
+            </div>
+          ))}
+        </div>
       </div>
-    </section>
-  );
-}
-
-function EvidenceInsightLayer({ insights }: { insights: { label: string; text: string }[] }) {
-  return (
-    <section style={inlineLayerStyle} aria-label="Evidence insight layer">
-      <p className="dcw-panel-eyebrow">Evidence Insight Layer</p>
-      <div style={inlinePreviewGridStyle}>
-        {insights.map((insight) => (
-          <div style={inlinePreviewItemStyle} key={insight.label} role="note">
-            <strong>{insight.label}</strong>
-            <br />
-            {insight.text}
-          </div>
-        ))}
+      <div style={quietHintStyle}>
+        <span className="dcw-panel-eyebrow">story memory</span>
+        <div style={whisperGridStyle}>
+          {storyMemory.map((memory) => (
+            <div style={whisperStyle} key={memory} role="note">
+              {memory}
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -269,7 +273,7 @@ function AITianyiCore({
   onGenerate: () => void;
 }) {
   return (
-    <section style={narrativeFlowStyle} aria-label="AI Tianyi Core writing area">
+    <section style={narrativeFlowStyle} aria-label="AI Tianyi story continuation area">
       <SessionIndicator flowState={flowState} sessionState={sessionState} />
       <WritingInput
         inputText={inputText}
@@ -277,7 +281,7 @@ function AITianyiCore({
         onInputChange={onInputChange}
         onGenerate={onGenerate}
       />
-      <WritingCanvas streamedText={streamedText} />
+      <WritingCanvas streamedText={streamedText} isWriting={flowState === "drafting"} />
     </section>
   );
 }
@@ -299,7 +303,11 @@ export default function TianyiImmersiveWorkspace() {
   }, []);
 
   const streamResponse = (response: KernelStructuredResponse) => {
-    const segments = response.text.split("\n\n");
+    const sentences = response.text
+      .split(/(?<=[.!?])\s+/)
+      .map((sentence) => sentence.trim())
+      .filter(Boolean);
+    const segments = sentences.length ? sentences : response.text.split("\n\n");
     let nextSegmentIndex = 0;
 
     const pushNextSegment = () => {
@@ -312,9 +320,9 @@ export default function TianyiImmersiveWorkspace() {
         return;
       }
 
-      setStreamedText((current) => (current ? `${current}\n\n${segment}` : segment));
+      setStreamedText((current) => (current ? `${current} ${segment}` : segment));
       nextSegmentIndex += 1;
-      streamTimer.current = setTimeout(pushNextSegment, 360);
+      streamTimer.current = setTimeout(pushNextSegment, 300);
     };
 
     pushNextSegment();
@@ -334,16 +342,16 @@ export default function TianyiImmersiveWorkspace() {
 
     setKernelResponse(null);
     setSessionState({
-      chapter: "Chapter preview: reading input",
-      continuity: "Continuity preview: waiting for kernel output",
+      chapter: "the current passage",
+      continuity: "finding the next thread",
     });
     setStreamedText("");
 
     if (!kernelProcessor) {
-      setStreamedText("processDevCanvasProductInput is not available in this UI runtime.");
+      setStreamedText("The story cannot continue yet because processDevCanvasProductInput is not available in this UI runtime.");
       setSessionState({
-        chapter: "Chapter preview: unavailable",
-        continuity: "Continuity preview: kernel interface missing",
+        chapter: "unavailable passage",
+        continuity: "kernel interface missing",
       });
       setFlowState("ready");
       return;
@@ -355,10 +363,10 @@ export default function TianyiImmersiveWorkspace() {
       const response = normalizeKernelResponse(await kernelProcessor(trimmedInput));
       streamResponse(response);
     } catch (error) {
-      setStreamedText(error instanceof Error ? error.message : "Kernel output binding failed.");
+      setStreamedText(error instanceof Error ? error.message : "The continuation could not be written from the current kernel output.");
       setSessionState({
-        chapter: "Chapter preview: kernel error",
-        continuity: "Continuity preview: output not rendered",
+        chapter: "interrupted passage",
+        continuity: "output not rendered",
       });
       setFlowState("ready");
     }
@@ -375,11 +383,11 @@ export default function TianyiImmersiveWorkspace() {
           onInputChange={setInputText}
           onGenerate={handleGenerate}
         />
-        <div style={inlineLayerStackStyle} aria-label="Inline narrative intelligence previews">
-          <EventLinePreviewLayer events={kernelResponse?.events ?? []} />
-          <NuwaSuggestionLayer previews={buildNuwaPreviews(kernelResponse)} />
-          <EvidenceInsightLayer insights={buildEvidenceInsights(kernelResponse, sessionState)} />
-        </div>
+        <NarrativeUndercurrent
+          nextBeats={buildNextBeatHints(kernelResponse?.events ?? [])}
+          lineWhispers={buildLineWhispers(kernelResponse)}
+          storyMemory={buildStoryMemory(kernelResponse, sessionState)}
+        />
       </div>
     </main>
   );
