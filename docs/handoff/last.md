@@ -1,2 +1,1 @@
-- empty init state
-- no logic implemented yet
+initial handoff - empty state
