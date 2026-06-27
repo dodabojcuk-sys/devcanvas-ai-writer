@@ -2,6 +2,7 @@
 
 import type { CSSProperties, FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
+import type { DevCanvasSkill } from "../../types/skill";
 
 type FlowState = "idle" | "drafting" | "ready";
 
@@ -38,6 +39,15 @@ const starterSuggestions = [
 const defaultSessionState: KernelSessionState = {
   chapter: "unplaced scene",
   continuity: "waiting for the next thread",
+};
+
+const inactiveSkillSlot: DevCanvasSkill = {
+  id: "skill-slot-inactive",
+  name: "Skill Slot (inactive placeholder)",
+  type: "global",
+  description: "Reserved for future skill orchestration. No execution is attached.",
+  scope: "global_writing_pipeline",
+  inactive: true,
 };
 
 const narrativeShellStyle: CSSProperties = {
@@ -251,6 +261,11 @@ function NarrativeUndercurrent({
               {memory}
             </div>
           ))}
+          <div style={{ ...whisperStyle, opacity: 0.72 }} role="note" aria-disabled="true">
+            <strong>{inactiveSkillSlot.name}</strong>
+            <br />
+            {inactiveSkillSlot.description}
+          </div>
         </div>
       </div>
     </section>
