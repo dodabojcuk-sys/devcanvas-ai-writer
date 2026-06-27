@@ -84,7 +84,7 @@ function SessionIndicator({
   return (
     <div className="dcw-session-indicator" aria-live="polite">
       <span className={`dcw-session-dot dcw-session-dot-${flowState}`} />
-      {label} · {sessionState.chapter} · {sessionState.continuity}
+      {label} - {sessionState.chapter} - {sessionState.continuity}
     </div>
   );
 }
@@ -177,7 +177,7 @@ function AISuggestionPanel({
           <p className="dcw-panel-eyebrow">Event line candidates</p>
           {events.map((event) => (
             <div className="dcw-suggestion-chip" key={event.title} role="note">
-              {event.title} · confidence {Math.round(event.confidence * 100)}%
+              {event.title} - confidence {Math.round(event.confidence * 100)}%
             </div>
           ))}
         </div>
