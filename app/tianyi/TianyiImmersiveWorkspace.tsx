@@ -1,6 +1,6 @@
 "use client";
 
-import type { FormEvent } from "react";
+import type { CSSProperties, FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 
 type FlowState = "idle" | "drafting" | "ready";
@@ -40,6 +40,42 @@ const defaultSessionState: KernelSessionState = {
   continuity: "Continuity preview: waiting for kernel output",
 };
 
+const narrativeFlowStyle: CSSProperties = {
+  width: "min(100%, 1040px)",
+  margin: "0 auto",
+  display: "grid",
+  gridTemplateColumns: "1fr",
+  gap: 18,
+};
+
+const inlineLayerStackStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr",
+  gap: 12,
+};
+
+const inlineLayerStyle: CSSProperties = {
+  border: "1px solid #d7d0c1",
+  borderRadius: 8,
+  background: "#fffdf8",
+  padding: 16,
+};
+
+const inlinePreviewGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: 10,
+};
+
+const inlinePreviewItemStyle: CSSProperties = {
+  border: "1px solid #cbd8cd",
+  borderRadius: 8,
+  background: "#eef3ec",
+  color: "#26342c",
+  padding: 12,
+  lineHeight: 1.5,
+};
+
 function getKernelProcessor(): KernelProcessor | null {
   const candidate = (globalThis as KernelBridge).processDevCanvasProductInput;
   return typeof candidate === "function" ? (candidate as KernelProcessor) : null;
@@ -55,6 +91,33 @@ function normalizeKernelResponse(response: KernelStructuredResponse): KernelStru
       continuity: response.sessionState?.continuity || "Continuity preview: kernel output received",
     },
   };
+}
+
+function buildNuwaPreviews(kernelResponse: KernelStructuredResponse | null) {
+  const sourceSuggestions = kernelResponse?.suggestions.length ? kernelResponse.suggestions : starterSuggestions;
+  return sourceSuggestions.slice(0, 3).map((suggestion, index) => ({
+    label: index === 0 ? "Rewrite direction" : index === 1 ? "Style variation" : "Inline polish",
+    text: suggestion,
+  }));
+}
+
+function buildEvidenceInsights(kernelResponse: KernelStructuredResponse | null, sessionState: KernelSessionState) {
+  const eventCount = kernelResponse?.events.length ?? 0;
+
+  return [
+    {
+      label: "Setting continuity",
+      text: sessionState.continuity,
+    },
+    {
+      label: "Fact reference",
+      text: eventCount > 0 ? `${eventCount} event candidate(s) available for later evidence review.` : "No event evidence surfaced yet.",
+    },
+    {
+      label: "Conflict check",
+      text: kernelResponse ? "No blocking setting conflict reported by the current UI-bound output." : "Waiting for kernel output before checking story consistency.",
+    },
+  ];
 }
 
 function SessionIndicator({
@@ -133,48 +196,85 @@ function WritingCanvas({ streamedText }: { streamedText: string }) {
   );
 }
 
-function AISuggestionPanel({
-  kernelResponse,
-  selectedSuggestion,
-  onUseSuggestion,
-}: {
-  kernelResponse: KernelStructuredResponse | null;
-  selectedSuggestion: string;
-  onUseSuggestion: (value: string) => void;
-}) {
-  const suggestions = kernelResponse?.suggestions.length ? kernelResponse.suggestions : starterSuggestions;
-  const events = kernelResponse?.events ?? [];
-
+function EventLinePreviewLayer({ events }: { events: KernelEventCandidate[] }) {
   return (
-    <aside className="dcw-suggestion-panel" aria-label="AI suggestion panel">
-      <div>
-        <p className="dcw-panel-eyebrow">Kernel output</p>
-        <h2>Structured guidance</h2>
-      </div>
-      <div className="dcw-suggestion-list">
-        {suggestions.map((suggestion) => (
-          <button
-            className="dcw-suggestion-chip"
-            key={suggestion}
-            type="button"
-            onClick={() => onUseSuggestion(suggestion)}
-          >
-            {suggestion}
-            {selectedSuggestion === suggestion ? " - selected locally" : ""}
-          </button>
-        ))}
-      </div>
-      {events.length > 0 ? (
-        <div className="dcw-suggestion-list" aria-label="Event line candidates">
-          <p className="dcw-panel-eyebrow">Event line candidates</p>
-          {events.map((event) => (
-            <div className="dcw-suggestion-chip" key={event.title} role="note">
+    <section style={inlineLayerStyle} aria-label="EventLine preview layer">
+      <p className="dcw-panel-eyebrow">EventLine Preview Layer</p>
+      <div style={inlinePreviewGridStyle}>
+        {events.length > 0 ? (
+          events.map((event) => (
+            <div style={inlinePreviewItemStyle} key={event.title} role="note">
               {event.title} - confidence {Math.round(event.confidence * 100)}%
             </div>
-          ))}
-        </div>
-      ) : null}
-    </aside>
+          ))
+        ) : (
+          <div style={inlinePreviewItemStyle}>Event suggestions will surface here without becoming a navigation entry.</div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function NuwaSuggestionLayer({ previews }: { previews: { label: string; text: string }[] }) {
+  return (
+    <section style={inlineLayerStyle} aria-label="Nuwa suggestion layer">
+      <p className="dcw-panel-eyebrow">Nuwa Suggestion Layer</p>
+      <div style={inlinePreviewGridStyle}>
+        {previews.map((preview) => (
+          <div style={inlinePreviewItemStyle} key={`${preview.label}-${preview.text}`} role="note">
+            <strong>{preview.label}</strong>
+            <br />
+            {preview.text}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function EvidenceInsightLayer({ insights }: { insights: { label: string; text: string }[] }) {
+  return (
+    <section style={inlineLayerStyle} aria-label="Evidence insight layer">
+      <p className="dcw-panel-eyebrow">Evidence Insight Layer</p>
+      <div style={inlinePreviewGridStyle}>
+        {insights.map((insight) => (
+          <div style={inlinePreviewItemStyle} key={insight.label} role="note">
+            <strong>{insight.label}</strong>
+            <br />
+            {insight.text}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function AITianyiCore({
+  inputText,
+  streamedText,
+  flowState,
+  sessionState,
+  onInputChange,
+  onGenerate,
+}: {
+  inputText: string;
+  streamedText: string;
+  flowState: FlowState;
+  sessionState: KernelSessionState;
+  onInputChange: (value: string) => void;
+  onGenerate: () => void;
+}) {
+  return (
+    <section style={narrativeFlowStyle} aria-label="AI Tianyi Core writing area">
+      <SessionIndicator flowState={flowState} sessionState={sessionState} />
+      <WritingInput
+        inputText={inputText}
+        isGenerating={flowState === "drafting"}
+        onInputChange={onInputChange}
+        onGenerate={onGenerate}
+      />
+      <WritingCanvas streamedText={streamedText} />
+    </section>
   );
 }
 
@@ -182,7 +282,6 @@ export default function TianyiImmersiveWorkspace() {
   const [inputText, setInputText] = useState("");
   const [streamedText, setStreamedText] = useState("");
   const [kernelResponse, setKernelResponse] = useState<KernelStructuredResponse | null>(null);
-  const [selectedSuggestion, setSelectedSuggestion] = useState("");
   const [flowState, setFlowState] = useState<FlowState>("idle");
   const [sessionState, setSessionState] = useState<KernelSessionState>(defaultSessionState);
   const streamTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -230,7 +329,6 @@ export default function TianyiImmersiveWorkspace() {
     }
 
     setKernelResponse(null);
-    setSelectedSuggestion("");
     setSessionState({
       chapter: "Chapter preview: reading input",
       continuity: "Continuity preview: waiting for kernel output",
@@ -262,27 +360,23 @@ export default function TianyiImmersiveWorkspace() {
     }
   };
 
-  const handleUseSuggestion = (suggestion: string) => {
-    setSelectedSuggestion(suggestion);
-  };
-
   return (
     <main className="dcw-tianyi-workspace">
-      <section className="dcw-workspace-primary" aria-label="AI Tianyi writing workspace">
-        <SessionIndicator flowState={flowState} sessionState={sessionState} />
-        <WritingInput
+      <div style={narrativeFlowStyle}>
+        <AITianyiCore
           inputText={inputText}
-          isGenerating={flowState === "drafting"}
+          streamedText={streamedText}
+          flowState={flowState}
+          sessionState={sessionState}
           onInputChange={setInputText}
           onGenerate={handleGenerate}
         />
-        <WritingCanvas streamedText={streamedText} />
-      </section>
-      <AISuggestionPanel
-        kernelResponse={kernelResponse}
-        selectedSuggestion={selectedSuggestion}
-        onUseSuggestion={handleUseSuggestion}
-      />
+        <div style={inlineLayerStackStyle} aria-label="Inline narrative intelligence previews">
+          <EventLinePreviewLayer events={kernelResponse?.events ?? []} />
+          <NuwaSuggestionLayer previews={buildNuwaPreviews(kernelResponse)} />
+          <EvidenceInsightLayer insights={buildEvidenceInsights(kernelResponse, sessionState)} />
+        </div>
+      </div>
     </main>
   );
 }
