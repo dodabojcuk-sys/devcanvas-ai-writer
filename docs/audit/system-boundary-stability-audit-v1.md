@@ -4,7 +4,7 @@
 
 This audit verifies that DevCanvas remains separated into independent writing, world model, and visualization pipelines after Task 020.
 
-The audit focuses on boundary stability, not feature completeness.
+The audit focuses on boundary stability, maintenance discipline, and expansion prevention.
 
 ## 2. Audit Scope
 
@@ -96,9 +96,43 @@ Result:
 Visualization is not connected to writing behavior.
 ```
 
-## 5. Risk Assessment
+## 5. Expansion Detection Rule
 
-Risk level: low.
+Future audits must reject any PR that contains expansion signals.
+
+Reject a PR if it includes:
+
+- new files introducing system concepts
+- new module definitions for skill, graph, runtime, kernel, system, snapshot, workflow, or intelligence expansion
+- new data structures that influence execution flow
+- UI additions that create a system entry, panel, cockpit, dashboard, or control surface
+- execution flow changes
+- new imports that connect previously isolated layers
+- new AI capability or product capability
+- maintenance wording that hides feature expansion
+
+Expansion detection applies regardless of PR label.
+
+## 6. Subtle Expansion Guard
+
+Future audits must reject subtle expansion.
+
+Subtle expansion includes:
+
+- bugfix-labeled PRs that introduce new capability
+- refactor-labeled PRs that change structure, ownership, or boundaries
+- performance-labeled PRs that change execution paths
+- polish-labeled PRs that add UI systems, panels, or control concepts
+- documentation-labeled PRs that reopen frozen architecture paths
+- validation-labeled PRs that add runtime behavior
+
+A PR must be reviewed by its diff, not by its title.
+
+If the diff expands capability, structure, execution, or system surface area, the PR must fail audit.
+
+## 7. Risk Assessment
+
+Risk level: low when maintenance gates are followed.
 
 The current architecture is stable because:
 
@@ -106,14 +140,15 @@ The current architecture is stable because:
 - graph projection remains one-way
 - visualization remains non-executing
 - no code path consumes snapshot output as control input
+- product governance forbids expansion-type work
 
 Primary future risk:
 
 ```text
-Graph or visualization state may be accidentally treated as writing control input.
+Subtle expansion may be hidden under bugfix, refactor, performance, polish, documentation, or validation wording.
 ```
 
-## 6. Required Guardrails
+## 8. Required Guardrails
 
 Future tasks must preserve:
 
@@ -122,12 +157,36 @@ Future tasks must preserve:
 - no visualization -> Tianyi writing flow
 - no UI -> graph mutation
 - no graph-derived event generation
+- no feature development
+- no architecture change
+- no AI capability expansion
+- no experimental module
+- no hidden expansion through maintenance wording
 
-If a future task intentionally crosses any of these boundaries, it must be treated as a new architecture task.
+If a future task intentionally or accidentally crosses any of these boundaries, it must be rejected.
 
-## 7. Audit Result
+## 9. ChatGPT Review Rule
 
-DevCanvas passes System Boundary Stability Audit v1.
+ChatGPT is the expansion gatekeeper.
+
+ChatGPT must reject any non-maintenance behavior.
+
+ChatGPT must reject any PR that creates:
+
+- new system capability
+- new execution flow
+- new architecture layer
+- new graph/snapshot/skill/workflow capability
+- new AI capability
+- new UI system entry
+- experimental module
+- hidden feature expansion
+
+Only safe cosmetic and fix-level changes may pass review.
+
+## 10. Audit Result
+
+DevCanvas passes System Boundary Stability Audit v1 under strict maintenance governance.
 
 Current state:
 
@@ -135,4 +194,6 @@ Current state:
 Writing Execution Pipeline: isolated
 World Model Pipeline: read-only
 Visualization Projection Layer: design-only / non-executing
+Maintenance Governance: strict
+Evolution Path: none
 ```

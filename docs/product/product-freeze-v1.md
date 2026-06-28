@@ -17,6 +17,7 @@ FROZEN PRODUCT
 PRODUCT COMPLETE (v1)
 WRITE-ONLY EXPERIENCE SYSTEM
 PERMANENTLY MAINTENANCE-LOCKED SYSTEM
+STRICTLY MAINTENANCE-GOVERNED SYSTEM
 ```
 
 It is not treated as:
@@ -66,6 +67,7 @@ Future work must not add:
 - new experimental modules
 - new execution concepts
 - new UI systems
+- new AI capabilities
 
 No feature expansion is allowed.
 
@@ -75,22 +77,25 @@ No autonomous task generation is allowed.
 
 No experimental layer or module is allowed.
 
+No implicit evolution is allowed.
+
 ## 5. Future Task Admission Rules
 
 Any future task must be maintenance-class only.
 
 A future task must be one of:
 
-- UI-only polish
+- UI visual polish
 - bugfix-only correction
-- performance improvement without architecture change
+- performance optimization without execution path change
+- copy/text adjustment
 - readability improvement without architecture change
-- documentation correction
-- validation improvement without architecture change
+- documentation update
+- non-structural validation improvement
 
 Any task that touches graph, system, kernel, runtime, snapshot, skill, workflow, autonomous execution, or intelligence expansion is forbidden by default.
 
-Any task that introduces a new feature, new system, new UI layer, new execution path, or new product capability is forbidden by default.
+Any task that introduces a new feature, new system, new UI layer, new execution path, new AI capability, or new product capability is forbidden by default.
 
 ## 6. Hard Guardrails
 
@@ -103,6 +108,7 @@ The following changes are forbidden:
 - system modification
 - graph or snapshot modification
 - graph, snapshot, skill, or workflow addition
+- AI capability expansion
 - intelligence layer expansion
 - world model expansion
 - autonomous task generation
@@ -115,16 +121,48 @@ The following changes are forbidden:
 
 If a future task appears to require one of these changes, the task must be rejected rather than expanded.
 
-## 7. Allowed Future Work
+## 7. Expansion Detection Rule
+
+A PR must be rejected if it includes any expansion signal:
+
+- new files introducing system concepts
+- new module definitions for skill, graph, runtime, kernel, system, snapshot, workflow, or intelligence expansion
+- new data structures that influence execution flow
+- UI additions that create a system entry, panel, cockpit, dashboard, or control surface
+- execution flow changes
+- new imports that connect previously isolated layers
+- new product capability hidden inside maintenance wording
+
+Expansion detection applies even when the PR title says bugfix, refactor, polish, performance, or documentation.
+
+## 8. Subtle Expansion Guard
+
+Subtle expansion is forbidden.
+
+Forbidden subtle expansion includes:
+
+- using bugfix wording to introduce new capability
+- using refactor wording to change architecture or boundaries
+- using performance wording to change execution paths
+- using UI polish wording to add a new UI system, panel, or control concept
+- using documentation wording to reopen a frozen architecture path
+- using validation wording to add runtime behavior
+
+A PR must be judged by its diff, not its label.
+
+If the diff expands capability, structure, execution, or system surface area, the PR must be rejected.
+
+## 9. Allowed Future Work
 
 Future work is limited to:
 
-- UI polish
 - bug fixes
-- performance optimization
+- UI visual polish
+- performance optimization without execution path change
+- copy/text adjustments
 - readability improvements
 - documentation updates
-- validation improvements that do not change structure
+- non-structural validation improvements
 
 Allowed work must preserve the pure writing experience.
 
@@ -132,7 +170,9 @@ Allowed work must not modify execution architecture.
 
 Allowed work must not introduce new systems.
 
-## 8. PR Gate Rule
+Allowed work must not create hidden product capability expansion.
+
+## 10. PR Gate Rule
 
 Every future PR must pass the Product Freeze PR Gate:
 
@@ -142,11 +182,16 @@ Every future PR must pass the Product Freeze PR Gate:
 - PR must not modify execution architecture.
 - PR must not change kernel/runtime/system behavior.
 - PR must not add graph/snapshot/skill/workflow capabilities.
-- PR must not add intelligence layers, experimental modules, or UI systems.
+- PR must not add AI capabilities, intelligence layers, experimental modules, or UI systems.
+- PR must not contain subtle expansion disguised as bugfix, refactor, performance, polish, docs, or validation.
 
 A PR that fails any gate must be rejected.
 
-## 9. Review Hard Constraint
+## 11. Review Hard Constraint
+
+ChatGPT is the expansion gatekeeper.
+
+ChatGPT must reject any non-maintenance behavior.
 
 ChatGPT must reject any expansion-type PR.
 
@@ -159,13 +204,15 @@ Expansion-type PRs include:
 - kernel/runtime/system modification
 - graph/snapshot/skill/workflow addition
 - UI system expansion
+- AI capability expansion
 - intelligence layer expansion
 - experimental module addition
 - autonomous task-chain revival
+- hidden expansion under bugfix/refactor/performance wording
 
 Review must preserve the maintenance-only product state.
 
-## 10. GitHub Behavior
+## 12. GitHub Behavior
 
 Default GitHub behavior changes from:
 
@@ -176,14 +223,14 @@ PR -> next task suggestion -> task chain continues
 to:
 
 ```text
-PR -> maintenance gate -> review -> product stabilization only
+PR -> maintenance gate -> expansion detection -> review -> product stabilization only
 ```
 
 Future PRs must not include a `NEXT TASK SUGGESTION BLOCK` by default.
 
 If a future task is required, it must be explicitly requested and must fit the allowed future work list.
 
-## 11. UI Product Rule
+## 13. UI Product Rule
 
 Tianyi must remain a pure writing surface.
 
@@ -199,6 +246,8 @@ The UI must not reintroduce:
 - control dashboards
 - system panels
 - development-tool language
+- system entry points
+- control surfaces
 
 The product should continue to feel like:
 
@@ -212,7 +261,7 @@ not:
 a system being operated
 ```
 
-## 12. Relationship To Previous Protocols
+## 14. Relationship To Previous Protocols
 
 This freeze overrides the default behavior of:
 
@@ -221,20 +270,20 @@ This freeze overrides the default behavior of:
 
 It does not delete those protocols. It restricts them to maintenance-only product work.
 
-## 13. Release Readiness Meaning
+## 15. Release Readiness Meaning
 
 Stable Product Mode means:
 
 - DevCanvas architecture is frozen
-- no evolution path exists
+- no evolution path exists, even implicitly
 - only stability maintenance is allowed
 - product identity is locked
 - system boundaries are locked
-- future work is corrective or polishing only
+- future work is corrective, cosmetic, textual, validation-only, or polishing only
 - GitHub remains the source of truth
 - DevCanvas is no longer a development environment
 
-## 14. Non-Goals
+## 16. Non-Goals
 
 This freeze does not:
 
