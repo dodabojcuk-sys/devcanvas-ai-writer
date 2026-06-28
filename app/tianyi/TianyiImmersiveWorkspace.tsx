@@ -2,6 +2,7 @@
 
 import type { CSSProperties, FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
+import { processDevCanvas } from "../../core/api/devcanvas";
 import type { DevCanvasSkill } from "../../types/skill";
 
 type WritingFlowState = "idle" | "generating" | "continuing_story" | "branching" | "refining";
@@ -30,11 +31,7 @@ type NarrativeParagraph = {
   isEmerging: boolean;
 };
 
-type KernelProcessor = (input: string) => KernelStructuredResponse | Promise<KernelStructuredResponse>;
-
-type KernelBridge = typeof globalThis & {
-  processDevCanvasProductInput?: unknown;
-};
+type KernelProcessor = (input: string, context?: any) => KernelStructuredResponse | Promise<KernelStructuredResponse>;
 
 const starterSuggestions = [
   "Let the next sentence reveal what the character wants before explaining why.",
@@ -137,9 +134,8 @@ const emergingSentenceStyle: CSSProperties = {
   padding: "1px 3px",
 };
 
-function getKernelProcessor(): KernelProcessor | null {
-  const candidate = (globalThis as KernelBridge).processDevCanvasProductInput;
-  return typeof candidate === "function" ? (candidate as KernelProcessor) : null;
+function getKernelProcessor(): KernelProcessor {
+  return processDevCanvas as KernelProcessor;
 }
 
 function normalizeKernelResponse(response: KernelStructuredResponse): KernelStructuredResponse {
@@ -513,21 +509,6 @@ export default function TianyiImmersiveWorkspace() {
       chapter: "the current passage",
       continuity: storyContext.length ? "carrying the previous thread" : "finding the first thread",
     });
-
-    if (!kernelProcessor) {
-      setStreamedText((current) =>
-        current
-          ? `${current}\n\n[The story cannot continue yet because processDevCanvasProductInput is not available in this UI runtime.]`
-          : "The story cannot continue yet because processDevCanvasProductInput is not available in this UI runtime.",
-      );
-      setSessionState({
-        chapter: "unavailable passage",
-        continuity: "kernel interface missing",
-      });
-      setFlowState(nextFlowState);
-      return;
-    }
-
     setFlowState("generating");
 
     try {
@@ -537,7 +518,14 @@ export default function TianyiImmersiveWorkspace() {
         storyContext,
         sessionState,
       });
-      const response = normalizeKernelResponse(await kernelProcessor(continuationTrigger));
+      const response = normalizeKernelResponse(
+        await kernelProcessor(continuationTrigger, {
+          source: "tianyi-ui",
+          flowState: nextFlowState,
+          sessionState,
+          storyContextSize: storyContext.length,
+        }),
+      );
       setInputText("");
       streamResponse(response, nextFlowState);
     } catch (error) {
