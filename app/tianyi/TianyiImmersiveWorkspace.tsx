@@ -55,7 +55,7 @@ const emergingParagraphStyle: CSSProperties = {
 };
 
 const emergingSentenceStyle: CSSProperties = {
-  background: "linear-gradient(90deg, rgb(238 243 236 / 0%), rgb(238 243 236 / 68%))",
+  background: "linear-gradient(90deg, rgb(213 225 216 / 0%), rgb(213 225 216 / 72%))",
   borderRadius: 6,
   padding: "1px 3px",
 };
@@ -166,7 +166,11 @@ function renderNarrativeParagraph(paragraph: NarrativeParagraph) {
     const isLastSentence = paragraph.isEmerging && index === sentences.length - 1;
 
     return (
-      <span style={isLastSentence ? emergingSentenceStyle : undefined} key={`${paragraph.id}-${index}`}>
+      <span
+        className={isLastSentence ? "dcw-current-sentence" : undefined}
+        style={isLastSentence ? emergingSentenceStyle : undefined}
+        key={`${paragraph.id}-${index}`}
+      >
         {sentence}
         {index < sentences.length - 1 ? " " : ""}
       </span>
@@ -216,20 +220,20 @@ function WritingInput({
       }}
     >
       <label className="dcw-input-label" htmlFor="tianyi-writing-input">
-        Next on the page
+        Where the story leans next
       </label>
       <textarea
         id="tianyi-writing-input"
         className="dcw-input-field"
         value={inputText}
         onChange={(event) => onInputChange(event.target.value)}
-        placeholder="A flicker of neon, a withheld answer, a door left half open..."
+        placeholder="A voice at the edge of the scene, a door left half open, a choice no one has named..."
         rows={6}
       />
       <div className="dcw-input-actions">
-        <span className="dcw-input-hint">Tianyi listens for the next sentence.</span>
+        <span className="dcw-input-hint">Tianyi follows the atmosphere already on the page.</span>
         <button className="dcw-generate-button" type="submit" disabled={isGenerating}>
-          {isGenerating ? "The scene is moving..." : "Let it continue"}
+          {isGenerating ? "The next sentence is arriving..." : "Let the scene continue"}
         </button>
       </div>
     </form>
@@ -269,8 +273,8 @@ function WritingCanvas({
         </div>
       ) : (
         <div className="dcw-empty-canvas">
-          <p>The page is quiet.</p>
-          <span>Begin with one image, one choice, or one line of dialogue.</span>
+          <p>The page is listening.</p>
+          <span>Begin with an image, a secret, or the first line of a scene.</span>
         </div>
       )}
     </section>
