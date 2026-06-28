@@ -13,42 +13,151 @@ export type DevCanvasAuditResult = {
   notes: string[];
 };
 
+export type DevCanvasExplanation = {
+  intent: string;
+  reasoning: string[];
+  systemFlow: string[];
+  decisionPoints: string[];
+  fallbackReasons?: string[];
+};
+
 export type DevCanvasResponse = DevCanvasKernelResponse & {
   executionGraph: DevCanvasExecutionGraph;
   auditResult: DevCanvasAuditResult;
+  explanation: DevCanvasExplanation;
 };
 
-function normalizeKernelResponse(response: DevCanvasKernelResponse): DevCanvasKernelResponse {
+type NormalizedKernelResult = {
+  response: DevCanvasKernelResponse;
+  fallbackReasons: string[];
+};
+
+function classifyIntent(input: string) {
+  const normalizedInput = input.toLowerCase();
+
+  if (/\b(branch|choice|fork|alternative|what if)\b/.test(normalizedInput) || /分支|选择|岔路|另一种/.test(input)) {
+    return "branching";
+  }
+
+  if (/\b(rewrite|revise|polish|refine|tighten)\b/.test(normalizedInput) || /改写|重写|润色|修订|精修/.test(input)) {
+    return "refining";
+  }
+
+  return "narrative_continuation";
+}
+
+function normalizeKernelResponse(response: DevCanvasKernelResponse): NormalizedKernelResult {
+  const fallbackReasons: string[] = [];
+  const text = response.text || "mock narrative response";
+  const suggestions = Array.isArray(response.suggestions) ? response.suggestions : [];
+  const events = Array.isArray(response.events) ? response.events : [];
+  const chapter = response.sessionState?.chapter || "init";
+  const continuity = response.sessionState?.continuity || "start";
+
+  if (!response.text) {
+    fallbackReasons.push("Kernel response did not include text; default narrative text was used.");
+  }
+
+  if (!Array.isArray(response.suggestions)) {
+    fallbackReasons.push("Kernel response did not include suggestions; an empty suggestion list was used.");
+  }
+
+  if (!Array.isArray(response.events)) {
+    fallbackReasons.push("Kernel response did not include events; an empty event list was used.");
+  }
+
+  if (!response.sessionState?.chapter || !response.sessionState?.continuity) {
+    fallbackReasons.push("Kernel response did not include a complete session state; default session fields were used.");
+  }
+
   return {
-    text: response.text || "mock narrative response",
-    suggestions: Array.isArray(response.suggestions) ? response.suggestions : [],
-    events: Array.isArray(response.events) ? response.events : [],
-    sessionState: {
-      chapter: response.sessionState?.chapter || "init",
-      continuity: response.sessionState?.continuity || "start",
+    response: {
+      text,
+      suggestions,
+      events,
+      sessionState: {
+        chapter,
+        continuity,
+      },
     },
+    fallbackReasons,
+  };
+}
+
+function buildExplanation({
+  input,
+  context,
+  executionGraph,
+  auditResult,
+  fallbackReasons,
+}: {
+  input: string;
+  context?: any;
+  executionGraph: DevCanvasExecutionGraph;
+  auditResult: DevCanvasAuditResult;
+  fallbackReasons: string[];
+}): DevCanvasExplanation {
+  const intent = classifyIntent(input);
+  const systemFlow = [
+    `entry: ${executionGraph.entry}`,
+    `router: ${executionGraph.entry} -> ${executionGraph.kernel}`,
+    `kernel: ${executionGraph.kernel}`,
+    `compatibility: ${executionGraph.wrappers.join(", ")}`,
+  ];
+  const decisionPoints = [
+    `intentClassifier: ${intent}`,
+    "constraintEngine: no additional constraints changed this execution",
+    `router: selected ${executionGraph.kernel} from the existing execution graph`,
+    fallbackReasons.length ? "fallback: normalization used fallback values" : "fallback: none",
+  ];
+  const reasoning = [
+    `The input was classified as ${intent}.`,
+    `The unified entry point stayed on ${executionGraph.entry}.`,
+    `Routing followed the existing execution graph into ${executionGraph.kernel}.`,
+    "The constraint pass only recorded boundaries; it did not change kernel behavior.",
+    executionGraph.contextProvided
+      ? `Caller context was provided${context?.source ? ` by ${context.source}` : ""}.`
+      : "No caller context was provided.",
+    ...auditResult.notes,
+  ];
+
+  return {
+    intent,
+    reasoning,
+    systemFlow,
+    decisionPoints,
+    ...(fallbackReasons.length ? { fallbackReasons } : {}),
   };
 }
 
 export function processDevCanvas(input: string, context?: any): DevCanvasResponse {
-  const kernelResponse = normalizeKernelResponse(runDevCanvasKernel(input));
+  const { response: kernelResponse, fallbackReasons } = normalizeKernelResponse(runDevCanvasKernel(input));
+  const executionGraph: DevCanvasExecutionGraph = {
+    entry: "processDevCanvas",
+    kernel: "runDevCanvasKernel",
+    wrappers: ["processDevCanvasInput", "processDevCanvasProductInput"],
+    contextProvided: typeof context !== "undefined",
+  };
+  const auditResult: DevCanvasAuditResult = {
+    ok: true,
+    source: "devcanvas-api-contract",
+    notes: [
+      "processDevCanvas is the single execution entry point.",
+      typeof context !== "undefined" ? "Execution context received." : "No execution context provided.",
+    ],
+  };
 
   return {
     ...kernelResponse,
-    executionGraph: {
-      entry: "processDevCanvas",
-      kernel: "runDevCanvasKernel",
-      wrappers: ["processDevCanvasInput", "processDevCanvasProductInput"],
-      contextProvided: typeof context !== "undefined",
-    },
-    auditResult: {
-      ok: true,
-      source: "devcanvas-api-contract",
-      notes: [
-        "processDevCanvas is the single execution entry point.",
-        typeof context !== "undefined" ? "Execution context received." : "No execution context provided.",
-      ],
-    },
+    executionGraph,
+    auditResult,
+    explanation: buildExplanation({
+      input,
+      context,
+      executionGraph,
+      auditResult,
+      fallbackReasons,
+    }),
   };
 }
 

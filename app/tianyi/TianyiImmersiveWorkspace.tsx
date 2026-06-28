@@ -18,11 +18,20 @@ type KernelSessionState = {
   continuity: string;
 };
 
+type DevCanvasExplanation = {
+  intent: string;
+  reasoning: string[];
+  systemFlow: string[];
+  decisionPoints: string[];
+  fallbackReasons?: string[];
+};
+
 type KernelStructuredResponse = {
   text: string;
   suggestions: string[];
   events: KernelEventCandidate[];
   sessionState: KernelSessionState;
+  explanation?: DevCanvasExplanation;
 };
 
 type NarrativeParagraph = {
@@ -134,6 +143,23 @@ const emergingSentenceStyle: CSSProperties = {
   padding: "1px 3px",
 };
 
+const explainabilityStyle: CSSProperties = {
+  borderLeft: "2px solid rgb(137 153 143 / 68%)",
+  color: "#354139",
+  padding: "10px 0 0 14px",
+};
+
+const explainabilitySummaryStyle: CSSProperties = {
+  cursor: "pointer",
+  fontWeight: 600,
+};
+
+const explanationListStyle: CSSProperties = {
+  margin: "10px 0 0",
+  paddingLeft: 18,
+  lineHeight: 1.55,
+};
+
 function getKernelProcessor(): KernelProcessor {
   return processDevCanvas as KernelProcessor;
 }
@@ -147,6 +173,7 @@ function normalizeKernelResponse(response: KernelStructuredResponse): KernelStru
       chapter: response.sessionState?.chapter || "current scene",
       continuity: response.sessionState?.continuity || "story thread held",
     },
+    explanation: response.explanation,
   };
 }
 
@@ -353,16 +380,35 @@ function WritingCanvas({ streamedText, isWriting }: { streamedText: string; isWr
   );
 }
 
+function ExplanationDisclosure({ explanation }: { explanation?: DevCanvasExplanation }) {
+  if (!explanation?.reasoning.length) {
+    return null;
+  }
+
+  return (
+    <details style={explainabilityStyle}>
+      <summary style={explainabilitySummaryStyle}>Why this response?</summary>
+      <ul style={explanationListStyle}>
+        {explanation.reasoning.map((reason) => (
+          <li key={reason}>{reason}</li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 function NarrativeUndercurrent({
   nextBeats,
   lineWhispers,
   evidenceSignals,
   storyMemory,
+  explanation,
 }: {
   nextBeats: string[];
   lineWhispers: { label: string; text: string }[];
   evidenceSignals: string[];
   storyMemory: string[];
+  explanation?: DevCanvasExplanation;
 }) {
   return (
     <section style={ambienceStyle} aria-label="Narrative rendering undercurrent">
@@ -408,6 +454,7 @@ function NarrativeUndercurrent({
           </div>
         </div>
       </div>
+      <ExplanationDisclosure explanation={explanation} />
     </section>
   );
 }
@@ -558,6 +605,7 @@ export default function TianyiImmersiveWorkspace() {
           lineWhispers={buildLineWhispers(kernelResponse, flowState)}
           evidenceSignals={buildEvidenceSignals(kernelResponse, storyContext)}
           storyMemory={buildStoryMemory(kernelResponse, sessionState, storyContext)}
+          explanation={kernelResponse?.explanation}
         />
       </div>
     </main>
