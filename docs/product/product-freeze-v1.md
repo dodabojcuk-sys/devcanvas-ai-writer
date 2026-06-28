@@ -10,11 +10,19 @@ This document supersedes autonomous task chaining as the default development beh
 
 DevCanvas is permanently in v1 product mode.
 
+DevCanvas is now a v1.0 complete product.
+
+No further development is allowed by default.
+
+Only maintenance mode exists after this handoff.
+
 DevCanvas is now treated as:
 
 ```text
+PRODUCTION-READY AI WRITING PRODUCT
 FROZEN PRODUCT
 PRODUCT COMPLETE (v1)
+v1.0 COMPLETE PRODUCT
 WRITE-ONLY EXPERIENCE SYSTEM
 PERMANENTLY MAINTENANCE-LOCKED SYSTEM
 STRICTLY MAINTENANCE-GOVERNED SYSTEM
@@ -38,7 +46,10 @@ The following systems are considered complete for v1:
 - writing system
 - kernel/runtime/system isolation
 - execution graph
+- unified execution API
 - explainability
+- Tianyi UI experience
+- UX and narrative polish
 - UX lock
 - world model contract
 - snapshot assembler
@@ -49,6 +60,27 @@ The following systems are considered complete for v1:
 - autonomous task pipeline documentation
 
 These systems are frozen. They may be documented or maintained, but they must not be expanded.
+
+## 3A. Production Handoff Lock
+
+DevCanvas v1.0 is officially handed off as a production-ready AI writing product.
+
+The product is not a development system by default.
+
+The product is not an architecture exploration environment by default.
+
+The product is not an autonomous task-generation environment by default.
+
+The only valid default mode after this handoff is maintenance mode.
+
+Maintenance mode means:
+
+- bug fix only
+- UI polish only
+- documentation only
+- non-structural validation only
+
+Any work outside maintenance mode requires a new explicit human product decision before implementation.
 
 ## 4. Stop Expansion Rule
 
@@ -163,6 +195,14 @@ Future work is limited to:
 - readability improvements
 - documentation updates
 - non-structural validation improvements
+
+The primary maintenance categories are:
+
+```text
+bug fix only
+UI polish only
+documentation only
+```
 
 Allowed work must preserve the pure writing experience.
 
