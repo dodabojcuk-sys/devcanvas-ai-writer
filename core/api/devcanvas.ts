@@ -88,7 +88,6 @@ function buildExplanation({
   input,
   context,
   executionGraph,
-  auditResult,
   fallbackReasons,
 }: {
   input: string;
@@ -98,6 +97,11 @@ function buildExplanation({
   fallbackReasons: string[];
 }): DevCanvasExplanation {
   const intent = classifyIntent(input);
+  const intentReason: Record<string, string> = {
+    branching: "I treated this as a possible branch in the story.",
+    refining: "I treated this as a request to refine the current passage.",
+    narrative_continuation: "I treated this as a continuation of the current story.",
+  };
   const systemFlow = [
     `entry: ${executionGraph.entry}`,
     `router: ${executionGraph.entry} -> ${executionGraph.kernel}`,
@@ -111,14 +115,15 @@ function buildExplanation({
     fallbackReasons.length ? "fallback: normalization used fallback values" : "fallback: none",
   ];
   const reasoning = [
-    `The input was classified as ${intent}.`,
-    `The unified entry point stayed on ${executionGraph.entry}.`,
-    `Routing followed the existing execution graph into ${executionGraph.kernel}.`,
-    "The constraint pass only recorded boundaries; it did not change kernel behavior.",
+    intentReason[intent],
+    "I kept the response inside the writing flow instead of opening another tool.",
+    "Story structure, rewrite pressure, and consistency cues stayed in the background.",
     executionGraph.contextProvided
-      ? `Caller context was provided${context?.source ? ` by ${context.source}` : ""}.`
-      : "No caller context was provided.",
-    ...auditResult.notes,
+      ? "I used the current writing session as context."
+      : "I used only the current prompt as context.",
+    fallbackReasons.length
+      ? "Some missing response fields were filled quietly so the draft could keep moving."
+      : "No fallback was needed for this response.",
   ];
 
   return {
