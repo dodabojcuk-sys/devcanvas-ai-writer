@@ -4,25 +4,10 @@ import type { CSSProperties, FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { processDevCanvas } from "../../core/api/devcanvas";
 
-type WritingFlowState = "idle" | "generating" | "continuing_story" | "branching" | "refining";
-
-type StoryBeatCandidate = {
-  type: "event_line_candidate";
-  title: string;
-  confidence: number;
-};
-
-type StoryThreadState = {
-  chapter: string;
-  continuity: string;
-};
+type WritingState = "idle" | "writing";
 
 type WritingContinuationResponse = {
-  text: string;
-  suggestions: string[];
-  events: StoryBeatCandidate[];
-  sessionState: StoryThreadState;
-  explanation?: unknown;
+  text?: string;
 };
 
 type NarrativeParagraph = {
@@ -31,12 +16,7 @@ type NarrativeParagraph = {
   isEmerging: boolean;
 };
 
-type WritingContinuationProcessor = (input: string, context?: any) => WritingContinuationResponse | Promise<WritingContinuationResponse>;
-
-const defaultStoryThread: StoryThreadState = {
-  chapter: "unplaced scene",
-  continuity: "waiting for the next thread",
-};
+type WritingContinuationProcessor = (input: string) => WritingContinuationResponse | Promise<WritingContinuationResponse>;
 
 const narrativeShellStyle: CSSProperties = {
   gridTemplateColumns: "1fr",
@@ -90,13 +70,6 @@ function normalizeContinuationResponse(response: WritingContinuationResponse): W
 
   return {
     text: continuationText || "The scene waits for its next sentence.",
-    suggestions: Array.isArray(response.suggestions) ? response.suggestions : [],
-    events: Array.isArray(response.events) ? response.events : [],
-    sessionState: {
-      chapter: response.sessionState?.chapter || "current scene",
-      continuity: response.sessionState?.continuity || "story thread held",
-    },
-    explanation: response.explanation,
   };
 }
 
@@ -130,40 +103,23 @@ function renderNarrativeParagraph(paragraph: NarrativeParagraph) {
   });
 }
 
-function getNextWritingFlowState(input: string): Exclude<WritingFlowState, "idle" | "generating"> {
-  const normalizedInput = input.toLowerCase();
-
-  if (/\b(branch|choice|fork|alternative|what if)\b/.test(normalizedInput) || /分支|选择|岔路|另一种/.test(input)) {
-    return "branching";
-  }
-
-  if (/\b(rewrite|revise|polish|refine|tighten)\b/.test(normalizedInput) || /改写|重写|润色|修订|精修/.test(input)) {
-    return "refining";
-  }
-
-  return "continuing_story";
-}
-
 function buildContinuationTrigger({
   input,
   streamedText,
-  storyContext,
-  storyThread,
+  carriedPassages,
 }: {
   input: string;
   streamedText: string;
-  storyContext: string[];
-  storyThread: StoryThreadState;
+  carriedPassages: string[];
 }) {
-  const recentContext = storyContext.slice(-3).join("\n\n");
+  const recentContext = carriedPassages.slice(-3).join("\n\n");
   const currentDraftTail = streamedText.trim().slice(-900);
 
   return [
-    "Continue this story as the next narrative beat, not as an answer.",
-    recentContext ? `Previous carried context:\n${recentContext}` : null,
-    currentDraftTail ? `Current draft tail:\n${currentDraftTail}` : null,
-    `Story thread: ${storyThread.chapter} / ${storyThread.continuity}`,
-    `Continuation trigger:\n${input}`,
+    "Continue the story in prose. Stay inside the scene and let the next sentence grow from what is already on the page.",
+    recentContext || null,
+    currentDraftTail || null,
+    input,
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -244,13 +200,13 @@ function WritingCanvas({ streamedText, isWriting }: { streamedText: string; isWr
 function AITianyiCore({
   inputText,
   streamedText,
-  flowState,
+  writingState,
   onInputChange,
   onGenerate,
 }: {
   inputText: string;
   streamedText: string;
-  flowState: WritingFlowState;
+  writingState: WritingState;
   onInputChange: (value: string) => void;
   onGenerate: () => void;
 }) {
@@ -258,11 +214,11 @@ function AITianyiCore({
     <section style={narrativeFlowStyle} aria-label="Story continuation area">
       <WritingInput
         inputText={inputText}
-        isGenerating={flowState === "generating"}
+        isGenerating={writingState === "writing"}
         onInputChange={onInputChange}
         onGenerate={onGenerate}
       />
-      <WritingCanvas streamedText={streamedText} isWriting={flowState === "generating"} />
+      <WritingCanvas streamedText={streamedText} isWriting={writingState === "writing"} />
     </section>
   );
 }
@@ -270,9 +226,8 @@ function AITianyiCore({
 export default function TianyiImmersiveWorkspace() {
   const [inputText, setInputText] = useState("");
   const [streamedText, setStreamedText] = useState("");
-  const [flowState, setFlowState] = useState<WritingFlowState>("idle");
-  const [storyThread, setStoryThread] = useState<StoryThreadState>(defaultStoryThread);
-  const [storyContext, setStoryContext] = useState<string[]>([]);
+  const [writingState, setWritingState] = useState<WritingState>("idle");
+  const [carriedPassages, setCarriedPassages] = useState<string[]>([]);
   const streamTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -283,7 +238,7 @@ export default function TianyiImmersiveWorkspace() {
     };
   }, []);
 
-  const streamResponse = (response: WritingContinuationResponse, nextFlowState: Exclude<WritingFlowState, "idle" | "generating">) => {
+  const streamResponse = (response: Required<WritingContinuationResponse>) => {
     const paragraphs = response.text
       .split(/\n{2,}/)
       .map((paragraph) => paragraph.trim())
@@ -305,9 +260,8 @@ export default function TianyiImmersiveWorkspace() {
       const segment = segments[nextSegmentIndex];
 
       if (!segment) {
-        setStoryThread(response.sessionState);
-        setStoryContext((current) => [...current, response.text].slice(-5));
-        setFlowState(nextFlowState);
+        setCarriedPassages((current) => [...current, response.text].slice(-5));
+        setWritingState("idle");
         return;
       }
 
@@ -328,9 +282,8 @@ export default function TianyiImmersiveWorkspace() {
   const handleGenerate = async () => {
     const trimmedInput = inputText.trim();
     const writingCompanion = getWritingContinuationProcessor();
-    const nextFlowState = getNextWritingFlowState(trimmedInput);
 
-    if (!trimmedInput || flowState === "generating") {
+    if (!trimmedInput || writingState === "writing") {
       return;
     }
 
@@ -338,39 +291,23 @@ export default function TianyiImmersiveWorkspace() {
       clearTimeout(streamTimer.current);
     }
 
-    setStoryThread({
-      chapter: "the current passage",
-      continuity: storyContext.length ? "carrying the previous thread" : "finding the first thread",
-    });
-    setFlowState("generating");
+    setWritingState("writing");
 
     try {
       const continuationTrigger = buildContinuationTrigger({
         input: trimmedInput,
         streamedText,
-        storyContext,
-        storyThread,
+        carriedPassages,
       });
-      const response = normalizeContinuationResponse(
-        await writingCompanion(continuationTrigger, {
-          source: "tianyi-ui",
-          flowState: nextFlowState,
-          storyThread,
-          storyContextSize: storyContext.length,
-        }),
-      );
+      const response = normalizeContinuationResponse(await writingCompanion(continuationTrigger));
       setInputText("");
-      streamResponse(response, nextFlowState);
+      streamResponse(response as Required<WritingContinuationResponse>);
     } catch {
       setStreamedText((current) => {
         const message = "The line slips out of reach. Try the next sentence again.";
         return current ? `${current}\n\n${message}` : message;
       });
-      setStoryThread({
-        chapter: "interrupted passage",
-        continuity: "output not rendered",
-      });
-      setFlowState(nextFlowState);
+      setWritingState("idle");
     }
   };
 
@@ -380,7 +317,7 @@ export default function TianyiImmersiveWorkspace() {
         <AITianyiCore
           inputText={inputText}
           streamedText={streamedText}
-          flowState={flowState}
+          writingState={writingState}
           onInputChange={setInputText}
           onGenerate={handleGenerate}
         />
