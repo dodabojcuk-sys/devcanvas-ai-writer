@@ -41,23 +41,9 @@ type NarrativeParagraph = {
 
 type KernelProcessor = (input: string, context?: any) => KernelStructuredResponse | Promise<KernelStructuredResponse>;
 
-const starterSuggestions = [
-  "Let the next sentence reveal what the character wants before explaining why.",
-  "Keep one sensory detail moving through the paragraph.",
-  "Let the tension surface as an action, not a label.",
-];
-
 const defaultSessionState: KernelSessionState = {
   chapter: "unplaced scene",
   continuity: "waiting for the next thread",
-};
-
-const flowStateLabel: Record<WritingFlowState, string> = {
-  idle: "ready to enter the story",
-  generating: "the story is moving",
-  continuing_story: "continuing the thread",
-  branching: "holding a branch",
-  refining: "refining the passage",
 };
 
 const narrativeShellStyle: CSSProperties = {
@@ -76,31 +62,6 @@ const ambienceStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr",
   gap: 10,
-};
-
-const quietHintStyle: CSSProperties = {
-  borderLeft: "2px solid #cbd8cd",
-  background: "rgb(255 253 248 / 72%)",
-  color: "#445148",
-  padding: "10px 0 10px 14px",
-  lineHeight: 1.55,
-  transition: "opacity 240ms ease, transform 240ms ease",
-};
-
-const whisperGridStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: 8,
-};
-
-const whisperStyle: CSSProperties = {
-  border: "1px solid rgb(203 216 205 / 70%)",
-  borderRadius: 8,
-  background: "rgb(238 243 236 / 58%)",
-  color: "#354139",
-  padding: 11,
-  lineHeight: 1.55,
-  transition: "background 220ms ease, opacity 220ms ease, transform 220ms ease",
 };
 
 const outputBlendStyle: CSSProperties = {
@@ -155,8 +116,11 @@ function getKernelProcessor(): KernelProcessor {
 }
 
 function normalizeKernelResponse(response: KernelStructuredResponse): KernelStructuredResponse {
+  const continuationText =
+    response.text === "mock narrative response" ? "mock narrative continuation" : response.text;
+
   return {
-    text: response.text || "The scene waits for its next sentence.",
+    text: continuationText || "The scene waits for its next sentence.",
     suggestions: Array.isArray(response.suggestions) ? response.suggestions : [],
     events: Array.isArray(response.events) ? response.events : [],
     sessionState: {
@@ -165,53 +129,6 @@ function normalizeKernelResponse(response: KernelStructuredResponse): KernelStru
     },
     explanation: response.explanation,
   };
-}
-
-function buildNextBeatHints(events: KernelEventCandidate[]) {
-  if (!events.length) {
-    return ["The next turn has not surfaced yet; let the paragraph reveal where it wants to lean."];
-  }
-
-  return events.slice(0, 2).map((event) => `The scene is leaning toward ${event.title.toLowerCase()}.`);
-}
-
-function buildLineWhispers(kernelResponse: KernelStructuredResponse | null, flowState: WritingFlowState) {
-  const sourceSuggestions = kernelResponse?.suggestions.length ? kernelResponse.suggestions : starterSuggestions;
-  return sourceSuggestions.slice(0, 3).map((suggestion, index) => ({
-    label: index === 0 ? "text drift" : index === 1 ? "alternate cadence" : flowState === "refining" ? "sentence softening" : "pressure",
-    text: suggestion,
-  }));
-}
-
-function buildEvidenceSignals(kernelResponse: KernelStructuredResponse | null, storyContext: string[]) {
-  const eventCount = kernelResponse?.events.length ?? 0;
-  const contextCount = storyContext.length;
-
-  if (!contextCount && !eventCount) {
-    return ["A faint continuity sense is waiting for the first stable scene detail."];
-  }
-
-  return [
-    eventCount > 0
-      ? `${eventCount} quiet cue(s) are being held in the background.`
-      : "No continuity friction has surfaced in this passage.",
-    contextCount > 0 ? `${contextCount} earlier beat(s) are still shading the paragraph.` : "This is still the opening motion.",
-  ];
-}
-
-function buildStoryMemory(
-  kernelResponse: KernelStructuredResponse | null,
-  sessionState: KernelSessionState,
-  storyContext: string[],
-) {
-  const eventCount = kernelResponse?.events.length ?? 0;
-
-  return [
-    `Chapter: ${sessionState.chapter}`,
-    `Continuity: ${sessionState.continuity}`,
-    `Memory: ${storyContext.length ? `${storyContext.length} carried beat(s)` : "first beat"}`,
-    eventCount > 0 ? `${eventCount} turn(s) remain implied, not opened as a system.` : "No turn has surfaced yet.",
-  ];
 }
 
 function buildNarrativeParagraphs(text: string, isWriting: boolean): NarrativeParagraph[] {
@@ -283,21 +200,6 @@ function buildContinuationTrigger({
     .join("\n\n");
 }
 
-function SessionIndicator({
-  flowState,
-  sessionState,
-}: {
-  flowState: WritingFlowState;
-  sessionState: KernelSessionState;
-}) {
-  return (
-    <div className="dcw-session-indicator" aria-live="polite">
-      <span className={`dcw-session-dot dcw-session-dot-${flowState}`} />
-      {flowStateLabel[flowState]} - {sessionState.chapter} - {sessionState.continuity}
-    </div>
-  );
-}
-
 function WritingInput({
   inputText,
   isGenerating,
@@ -318,20 +220,20 @@ function WritingInput({
       }}
     >
       <label className="dcw-input-label" htmlFor="tianyi-writing-input">
-        Push the story forward
+        Continue the story
       </label>
       <textarea
         id="tianyi-writing-input"
         className="dcw-input-field"
         value={inputText}
         onChange={(event) => onInputChange(event.target.value)}
-        placeholder="Add the next image, decision, branch, or rewrite impulse."
+        placeholder="Add the next image, choice, or line of dialogue."
         rows={6}
       />
       <div className="dcw-input-actions">
-        <span className="dcw-input-hint">Each trigger carries the previous draft forward without opening another system.</span>
+        <span className="dcw-input-hint">The next line will carry the draft forward.</span>
         <button className="dcw-generate-button" type="submit" disabled={isGenerating}>
-          {isGenerating ? "Writing..." : "Continue flow"}
+          {isGenerating ? "Writing..." : "Continue story"}
         </button>
       </div>
     </form>
@@ -363,7 +265,7 @@ function WritingCanvas({ streamedText, isWriting }: { streamedText: string; isWr
       ) : (
         <div className="dcw-empty-canvas">
           <p>The story is waiting for its first motion.</p>
-          <span>Start with an image, a choice, or a line of dialogue. The next trigger will keep carrying it.</span>
+          <span>Start with an image, a choice, or a line of dialogue. The story will keep carrying it.</span>
         </div>
       )}
     </section>
@@ -377,7 +279,7 @@ function ExplanationDisclosure({ explanation }: { explanation?: DevCanvasExplana
 
   return (
     <details style={explainabilityStyle}>
-      <summary style={explainabilitySummaryStyle}>Why this response?</summary>
+      <summary style={explainabilitySummaryStyle}>Why this continuation?</summary>
       <ul style={explanationListStyle}>
         {explanation.reasoning.map((reason) => (
           <li key={reason}>{reason}</li>
@@ -388,57 +290,16 @@ function ExplanationDisclosure({ explanation }: { explanation?: DevCanvasExplana
 }
 
 function NarrativeUndercurrent({
-  nextBeats,
-  lineWhispers,
-  evidenceSignals,
-  storyMemory,
   explanation,
 }: {
-  nextBeats: string[];
-  lineWhispers: { label: string; text: string }[];
-  evidenceSignals: string[];
-  storyMemory: string[];
   explanation?: DevCanvasExplanation;
 }) {
+  if (process.env.NODE_ENV !== "development") {
+    return null;
+  }
+
   return (
-    <section style={ambienceStyle} aria-label="Narrative rendering undercurrent">
-      <div style={quietHintStyle}>
-        <span className="dcw-panel-eyebrow">undertow</span>
-        <div style={whisperGridStyle}>
-          {nextBeats.map((hint) => (
-            <div style={whisperStyle} key={hint} role="note">
-              {hint}
-            </div>
-          ))}
-        </div>
-      </div>
-      <div style={quietHintStyle}>
-        <span className="dcw-panel-eyebrow">text drift</span>
-        <div style={whisperGridStyle}>
-          {lineWhispers.map((whisper) => (
-            <div style={whisperStyle} key={`${whisper.label}-${whisper.text}`} role="note">
-              <strong>{whisper.label}</strong>
-              <br />
-              {whisper.text}
-            </div>
-          ))}
-        </div>
-      </div>
-      <div style={quietHintStyle}>
-        <span className="dcw-panel-eyebrow">continuity weather</span>
-        <div style={whisperGridStyle}>
-          {evidenceSignals.map((signal) => (
-            <div style={whisperStyle} key={signal} role="note">
-              {signal}
-            </div>
-          ))}
-          {storyMemory.map((memory) => (
-            <div style={whisperStyle} key={memory} role="note">
-              {memory}
-            </div>
-          ))}
-        </div>
-      </div>
+    <section style={ambienceStyle} aria-label="Continuation notes">
       <ExplanationDisclosure explanation={explanation} />
     </section>
   );
@@ -448,20 +309,17 @@ function AITianyiCore({
   inputText,
   streamedText,
   flowState,
-  sessionState,
   onInputChange,
   onGenerate,
 }: {
   inputText: string;
   streamedText: string;
   flowState: WritingFlowState;
-  sessionState: KernelSessionState;
   onInputChange: (value: string) => void;
   onGenerate: () => void;
 }) {
   return (
-    <section style={narrativeFlowStyle} aria-label="AI Tianyi story continuation area">
-      <SessionIndicator flowState={flowState} sessionState={sessionState} />
+    <section style={narrativeFlowStyle} aria-label="Story continuation area">
       <WritingInput
         inputText={inputText}
         isGenerating={flowState === "generating"}
@@ -581,17 +439,10 @@ export default function TianyiImmersiveWorkspace() {
           inputText={inputText}
           streamedText={streamedText}
           flowState={flowState}
-          sessionState={sessionState}
           onInputChange={setInputText}
           onGenerate={handleGenerate}
         />
-        <NarrativeUndercurrent
-          nextBeats={buildNextBeatHints(kernelResponse?.events ?? [])}
-          lineWhispers={buildLineWhispers(kernelResponse, flowState)}
-          evidenceSignals={buildEvidenceSignals(kernelResponse, storyContext)}
-          storyMemory={buildStoryMemory(kernelResponse, sessionState, storyContext)}
-          explanation={kernelResponse?.explanation}
-        />
+        <NarrativeUndercurrent explanation={kernelResponse?.explanation} />
       </div>
     </main>
   );
