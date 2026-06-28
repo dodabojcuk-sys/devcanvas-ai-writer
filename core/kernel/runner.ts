@@ -1,3 +1,5 @@
+import { processDevCanvasInput } from "./index";
+
 export type DevCanvasKernelEvent = {
   type: "event_line_candidate";
   title: string;
@@ -17,15 +19,25 @@ export type DevCanvasKernelResponse = {
 };
 
 export function runDevCanvasKernel(input: string): DevCanvasKernelResponse {
-  void input;
+  const response = processDevCanvasInput({ input });
+  const events = response.events.map((event) => ({
+    type: "event_line_candidate" as const,
+    title: event.title,
+    confidence: 0.72,
+  }));
+  const chapter = response.sessionState.chapterState.currentChapterTitle;
+  const continuity =
+    response.sessionState.eventState.latestEventHint ||
+    response.sessionState.storyMemory.currentConflict ||
+    "start";
 
   return {
-    text: "mock narrative response",
-    suggestions: [],
-    events: [],
+    text: response.text,
+    suggestions: events.map((event) => event.title).slice(0, 3),
+    events,
     sessionState: {
-      chapter: "init",
-      continuity: "start",
+      chapter,
+      continuity,
     },
   };
 }
