@@ -1,5 +1,13 @@
 # DevCanvas Autonomous Task Pipeline v1
 
+## Status
+
+Suspended by DevCanvas Product Freeze v1.
+
+This protocol remains as historical workflow documentation, but it is no longer the default development mode once DevCanvas enters Stable Product Mode.
+
+Future PRs should not automatically include a `NEXT TASK SUGGESTION BLOCK` unless a human explicitly re-enables autonomous task chaining for a bounded maintenance cycle.
+
 ## 1. Purpose
 
 DevCanvas Autonomous Task Pipeline v1 defines how Codex should continue work after each PR without requiring a fresh manual task prompt every time.
