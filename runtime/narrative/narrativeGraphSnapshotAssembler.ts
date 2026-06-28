@@ -90,7 +90,7 @@ function toEventType(type: string | undefined): EventNodeType {
 }
 
 function buildEventNodes(input: NarrativeGraphSnapshotAssemblerInput, timestamp: string): EventNode[] {
-  const eventNodes =
+  const eventNodes: EventNode[] =
     input.events?.map((event, index) => {
       const label = event.title || event.type || "Unknown event";
       const confidence = clampConfidence(event.confidence, 0.5);
