@@ -48,26 +48,26 @@ function classifyIntent(input: string) {
 
 function normalizeKernelResponse(response: DevCanvasKernelResponse): NormalizedKernelResult {
   const fallbackReasons: string[] = [];
-  const text = response.text || "mock narrative response";
+  const text = response.text === "mock narrative response" ? "mock narrative continuation" : response.text || "mock narrative continuation";
   const suggestions = Array.isArray(response.suggestions) ? response.suggestions : [];
   const events = Array.isArray(response.events) ? response.events : [];
   const chapter = response.sessionState?.chapter || "init";
   const continuity = response.sessionState?.continuity || "start";
 
   if (!response.text) {
-    fallbackReasons.push("Kernel response did not include text; default narrative text was used.");
+    fallbackReasons.push("Core output did not include text; default narrative continuation was used.");
   }
 
   if (!Array.isArray(response.suggestions)) {
-    fallbackReasons.push("Kernel response did not include suggestions; an empty suggestion list was used.");
+    fallbackReasons.push("Core output did not include suggestions; an empty suggestion list was used.");
   }
 
   if (!Array.isArray(response.events)) {
-    fallbackReasons.push("Kernel response did not include events; an empty event list was used.");
+    fallbackReasons.push("Core output did not include events; an empty event list was used.");
   }
 
   if (!response.sessionState?.chapter || !response.sessionState?.continuity) {
-    fallbackReasons.push("Kernel response did not include a complete session state; default session fields were used.");
+    fallbackReasons.push("Core output did not include a complete session state; default session fields were used.");
   }
 
   return {
@@ -116,14 +116,14 @@ function buildExplanation({
   ];
   const reasoning = [
     intentReason[intent],
-    "I kept the response inside the writing flow instead of opening another tool.",
+    "I kept the continuation inside the writing flow instead of opening another tool.",
     "Story structure, rewrite pressure, and consistency cues stayed in the background.",
     executionGraph.contextProvided
       ? "I used the current writing session as context."
       : "I used only the current prompt as context.",
     fallbackReasons.length
-      ? "Some missing response fields were filled quietly so the draft could keep moving."
-      : "No fallback was needed for this response.",
+      ? "Some missing continuation fields were filled quietly so the draft could keep moving."
+      : "No fallback was needed for this continuation.",
   ];
 
   return {
