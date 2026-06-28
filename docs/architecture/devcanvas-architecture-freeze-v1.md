@@ -6,6 +6,31 @@ DevCanvas Architecture Freeze v1 records the current stable product architecture
 
 This document is not a new feature proposal. It is a boundary lock.
 
+## 1A. Production Handoff Status
+
+DevCanvas is v1.0 production complete.
+
+The architecture is frozen as a production-ready AI writing product, not an active development system.
+
+All major v1 systems are complete:
+
+- writing system: COMPLETE
+- execution system: COMPLETE
+- world model: COMPLETE
+- snapshot projection: COMPLETE
+- explainability: COMPLETE
+- UI experience: COMPLETE
+- GitHub workflow: COMPLETE
+- product freeze governance: COMPLETE
+
+Only maintenance mode remains by default.
+
+Allowed maintenance is limited to:
+
+- bug fixes
+- UI polish
+- documentation updates
+
 ## 2. Frozen Architecture
 
 DevCanvas is frozen into three independent pipelines:
@@ -103,9 +128,13 @@ The current architecture must preserve these invariants:
 - Tianyi remains the only writing surface.
 - Visualization remains a projection, not an execution layer.
 
-## 7. Future Change Rule
+## 7. Maintenance Change Rule
 
-Any future PR that crosses one of these boundaries must:
+Boundary-crossing work is not allowed by default in v1.0 maintenance mode.
+
+Any future PR that appears to cross one of these boundaries must be rejected unless a human explicitly reopens product strategy before implementation.
+
+If a human explicitly reopens product strategy, the PR must:
 
 - declare the boundary being crossed
 - update this freeze document
@@ -114,6 +143,8 @@ Any future PR that crosses one of these boundaries must:
 - explain why the boundary change is required
 
 Silent boundary crossing is not allowed.
+
+In normal maintenance mode, the correct action is rejection, not expansion.
 
 ## 8. Non-Goals
 
