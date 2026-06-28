@@ -24,6 +24,12 @@ type KernelStructuredResponse = {
   sessionState: KernelSessionState;
 };
 
+type NarrativeParagraph = {
+  id: string;
+  text: string;
+  isEmerging: boolean;
+};
+
 type KernelProcessor = (input: string) => KernelStructuredResponse | Promise<KernelStructuredResponse>;
 
 type KernelBridge = typeof globalThis & {
@@ -107,6 +113,30 @@ const outputBlendStyle: CSSProperties = {
   transition: "opacity 260ms ease, transform 260ms ease",
 };
 
+const narrativeArticleStyle: CSSProperties = {
+  display: "grid",
+  gap: 18,
+};
+
+const narrativeParagraphStyle: CSSProperties = {
+  margin: 0,
+  color: "#26322b",
+  fontSize: 17,
+  lineHeight: 1.86,
+  whiteSpace: "pre-wrap",
+};
+
+const emergingParagraphStyle: CSSProperties = {
+  opacity: 0.88,
+  transform: "translateY(1px)",
+};
+
+const emergingSentenceStyle: CSSProperties = {
+  background: "linear-gradient(90deg, rgb(238 243 236 / 0%), rgb(238 243 236 / 68%))",
+  borderRadius: 6,
+  padding: "1px 3px",
+};
+
 function getKernelProcessor(): KernelProcessor | null {
   const candidate = (globalThis as KernelBridge).processDevCanvasProductInput;
   return typeof candidate === "function" ? (candidate as KernelProcessor) : null;
@@ -126,16 +156,16 @@ function normalizeKernelResponse(response: KernelStructuredResponse): KernelStru
 
 function buildNextBeatHints(events: KernelEventCandidate[]) {
   if (!events.length) {
-    return ["A quiet structure signal will appear when the scene exposes its next turn."];
+    return ["The next turn has not surfaced yet; let the paragraph reveal where it wants to lean."];
   }
 
-  return events.slice(0, 2).map((event) => `Possible turn: ${event.title} (${Math.round(event.confidence * 100)}% confidence)`);
+  return events.slice(0, 2).map((event) => `The scene is leaning toward ${event.title.toLowerCase()}.`);
 }
 
 function buildLineWhispers(kernelResponse: KernelStructuredResponse | null, flowState: WritingFlowState) {
   const sourceSuggestions = kernelResponse?.suggestions.length ? kernelResponse.suggestions : starterSuggestions;
   return sourceSuggestions.slice(0, 3).map((suggestion, index) => ({
-    label: index === 0 ? "nuwa rewrite" : index === 1 ? "style variation" : flowState === "refining" ? "sentence polish" : "pressure",
+    label: index === 0 ? "text drift" : index === 1 ? "alternate cadence" : flowState === "refining" ? "sentence softening" : "pressure",
     text: suggestion,
   }));
 }
@@ -145,14 +175,14 @@ function buildEvidenceSignals(kernelResponse: KernelStructuredResponse | null, s
   const contextCount = storyContext.length;
 
   if (!contextCount && !eventCount) {
-    return ["Consistency signal: background memory is waiting for story context."];
+    return ["A faint continuity sense is waiting for the first stable scene detail."];
   }
 
   return [
     eventCount > 0
-      ? `Consistency signal: ${eventCount} structural cue(s) are being watched.`
-      : "Consistency signal: no contradiction surfaced in this passage.",
-    contextCount > 0 ? `Context carry: ${contextCount} previous beat(s) remain active.` : "Context carry: first passage.",
+      ? `${eventCount} quiet cue(s) are being held in the background.`
+      : "No continuity friction has surfaced in this passage.",
+    contextCount > 0 ? `${contextCount} earlier beat(s) are still shading the paragraph.` : "This is still the opening motion.",
   ];
 }
 
@@ -166,9 +196,39 @@ function buildStoryMemory(
   return [
     `Chapter: ${sessionState.chapter}`,
     `Continuity: ${sessionState.continuity}`,
-    `Flow memory: ${storyContext.length ? `${storyContext.length} carried beat(s)` : "first beat"}`,
-    eventCount > 0 ? `${eventCount} quiet story turn(s) are being held in memory.` : "No story turn has surfaced yet.",
+    `Memory: ${storyContext.length ? `${storyContext.length} carried beat(s)` : "first beat"}`,
+    eventCount > 0 ? `${eventCount} turn(s) remain implied, not opened as a system.` : "No turn has surfaced yet.",
   ];
+}
+
+function buildNarrativeParagraphs(text: string, isWriting: boolean): NarrativeParagraph[] {
+  const blocks = text
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+
+  return blocks.map((paragraph, index) => ({
+    id: `paragraph-${index}-${paragraph.slice(0, 24)}`,
+    text: paragraph,
+    isEmerging: isWriting && index === blocks.length - 1,
+  }));
+}
+
+function renderNarrativeParagraph(paragraph: NarrativeParagraph) {
+  const sentences = paragraph.text.match(/[^.!?。！？]+[.!?。！？]?/g)?.filter((sentence) => sentence.trim()) ?? [
+    paragraph.text,
+  ];
+
+  return sentences.map((sentence, index) => {
+    const isLastSentence = paragraph.isEmerging && index === sentences.length - 1;
+
+    return (
+      <span style={isLastSentence ? emergingSentenceStyle : undefined} key={`${paragraph.id}-${index}`}>
+        {sentence}
+        {index < sentences.length - 1 ? " " : ""}
+      </span>
+    );
+  });
 }
 
 function getNextWritingFlowState(input: string): Exclude<WritingFlowState, "idle" | "generating"> {
@@ -266,11 +326,26 @@ function WritingInput({
 }
 
 function WritingCanvas({ streamedText, isWriting }: { streamedText: string; isWriting: boolean }) {
+  const paragraphs = buildNarrativeParagraphs(streamedText, isWriting);
+
   return (
     <section className="dcw-writing-canvas" aria-label="Writing canvas">
-      {streamedText ? (
+      {paragraphs.length ? (
         <div style={{ ...outputBlendStyle, opacity: isWriting ? 0.94 : 1 }}>
-          <pre className="dcw-output-text">{streamedText}</pre>
+          <article style={narrativeArticleStyle} aria-label="Narrative draft">
+            {paragraphs.map((paragraph) => (
+              <p
+                className="dcw-output-text"
+                style={{
+                  ...narrativeParagraphStyle,
+                  ...(paragraph.isEmerging ? emergingParagraphStyle : {}),
+                }}
+                key={paragraph.id}
+              >
+                {renderNarrativeParagraph(paragraph)}
+              </p>
+            ))}
+          </article>
         </div>
       ) : (
         <div className="dcw-empty-canvas">
@@ -294,9 +369,9 @@ function NarrativeUndercurrent({
   storyMemory: string[];
 }) {
   return (
-    <section style={ambienceStyle} aria-label="Writing flow suggestions">
+    <section style={ambienceStyle} aria-label="Narrative rendering undercurrent">
       <div style={quietHintStyle}>
-        <span className="dcw-panel-eyebrow">implicit structure</span>
+        <span className="dcw-panel-eyebrow">undertow</span>
         <div style={whisperGridStyle}>
           {nextBeats.map((hint) => (
             <div style={whisperStyle} key={hint} role="note">
@@ -306,7 +381,7 @@ function NarrativeUndercurrent({
         </div>
       </div>
       <div style={quietHintStyle}>
-        <span className="dcw-panel-eyebrow">inline rewrite drift</span>
+        <span className="dcw-panel-eyebrow">text drift</span>
         <div style={whisperGridStyle}>
           {lineWhispers.map((whisper) => (
             <div style={whisperStyle} key={`${whisper.label}-${whisper.text}`} role="note">
@@ -318,7 +393,7 @@ function NarrativeUndercurrent({
         </div>
       </div>
       <div style={quietHintStyle}>
-        <span className="dcw-panel-eyebrow">background continuity</span>
+        <span className="dcw-panel-eyebrow">continuity weather</span>
         <div style={whisperGridStyle}>
           {evidenceSignals.map((signal) => (
             <div style={whisperStyle} key={signal} role="note">
