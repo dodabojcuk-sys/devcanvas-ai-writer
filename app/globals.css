@@ -37,11 +37,11 @@
   width: 100%;
   min-height: 148px;
   resize: vertical;
-  border: 1px solid #d7ded6;
+  border: 1px solid transparent;
   border-radius: 8px;
   padding: 16px;
   color: #17201b;
-  background: #fffefa;
+  background: rgb(255 254 250 / 76%);
   font: inherit;
   line-height: 1.72;
   caret-color: #2f513f;
@@ -75,6 +75,13 @@
   min-height: 42px;
   padding: 0 16px;
   white-space: nowrap;
+  transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+.dcw-generate-button:not(:disabled):hover {
+  background: #254635;
+  border-color: #254635;
+  transform: translateY(-1px);
 }
 
 .dcw-generate-button:disabled {
@@ -100,6 +107,11 @@
   font: inherit;
   font-size: 17px;
   line-height: 1.84;
+}
+
+.dcw-page-end {
+  display: block;
+  height: 1px;
 }
 
 .dcw-empty-canvas {
@@ -141,5 +153,9 @@
 @media (prefers-reduced-motion: reduce) {
   .dcw-writing-canvas {
     scroll-behavior: auto;
+  }
+
+  .dcw-generate-button {
+    transition: none;
   }
 }
