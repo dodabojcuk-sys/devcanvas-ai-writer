@@ -1,67 +1,40 @@
 # DevCanvas Latest Handoff
 
-Snapshot time: 2026-06-28 08:33:48 Asia/Shanghai
-Snapshot branch: `task-013-system-state-sync`
-Base branch: `task-012-narrative-rendering-layer`
+Snapshot time: 2026-06-28 09:55:00 Asia/Shanghai
+Snapshot branch: `task-017-narrative-identity-lock`
+Base branch: `task-016-product-stability-ux-lock`
 
 ## Current Overall State
 
-DevCanvas is in a multi-PR development state. The repository has several reviewable capability branches, but `main` has not absorbed them yet.
+DevCanvas is in the product identity lock phase. The active branch keeps the unified execution API and explainability data path from earlier tasks, while the default Tianyi UI now behaves as a writing surface instead of a system interface.
 
-Current reality:
+## Latest Task
 
-- `main` is still a bootstrap repository state.
-- UI writing experience is developed through the open UI PR chain ending at PR #11.
-- Minimal kernel/runtime foundation exists in a separate open PR #8.
-- GitHub protocol and handoff reporting exist in separate open documentation PRs #4 and #9.
-- There is no single merged branch that contains UI + skill schema + kernel + runtime + reporting together.
+- Task 017: Narrative identity lock.
+- Handoff report: `docs/handoff/task-017.md`.
 
-## Tasks Represented in GitHub
+## Current Product Position
 
-- Task 001: UI shell, PR #1, open, not merged.
-- Task 002: kernel-shaped UI simulation, PR #2, open, not merged.
-- Task 003: UI-only kernel output binding, PR #3, open, not merged.
-- Task 004: GitHub development protocol, PR #4, open, not merged.
-- Task 005: product-level narrative UI structure, PR #5, open, not merged.
-- Task 006: smooth narrative writing experience, PR #6, open, not merged.
-- Task 007: backend foundation branch exists, but the branch currently matches `main` and no active PR was found in the connector PR list.
-- Task 008: inactive Skill entry layer, PR #7, open, not merged.
-- Task 009: minimal executable core system, PR #8, open, not merged.
-- Task 010: execution report handoff system, PR #9, open, not merged.
-- Task 011: continuous writing flow, PR #10, open, not merged.
-- Task 012: narrative rendering layer, PR #11, open, not merged.
-- Task 013: system state sync, current task branch.
+- Tianyi remains the only visible writing entry.
+- AI output is framed as story continuation.
+- Explanation is hidden from the default UI and only available in development mode.
+- EventLine, Nuwa, Evidence, execution graph, and internal execution structure are not exposed as default UI surfaces.
 
-## Current Run Status
+## Impact Summary
 
-The system is not yet runnable as one integrated product from `main`.
+- Kernel: no logic changes.
+- Runtime: no logic changes.
+- System: no logic changes.
+- UI: default visible surface simplified to writing input plus narrative canvas.
 
-What can be reviewed now:
+## Validation Summary
 
-- UI flow and narrative rendering can be reviewed in the UI PR chain.
-- Minimal kernel/runtime shape can be reviewed in PR #8.
-- Protocol/reporting docs can be reviewed in PRs #4 and #9.
-
-What is not yet integrated:
-
-- UI-to-kernel execution path.
-- Runtime adapter binding into the UI.
-- A package/test/build harness.
-- Any real AI, EventLine, Nuwa, or Evidence execution logic.
-
-## Key Health Notes
-
-- UI expects `processDevCanvasProductInput`.
-- Minimal core exports `processDevCanvasInput`.
-- Runtime adapter exports `processDevCanvasInputThroughSystemAdapter`.
-- These names and branches need a focused bridge task before claiming end-to-end integration.
-
-## Latest State Document
-
-Read the full state report here:
-
-- `docs/system/system-state.md`
+- Static visible-copy scan completed for removed system-facing UI strings.
+- Static assertion confirmed development-only explanation rendering.
+- Node 24 type-stripping syntax checks completed for core TS files.
+- Static assertion confirmed unified API continuation wording.
+- Full TSX compile/build was not run because the branch has no `package.json`, React dependency, or TypeScript build harness.
 
 ## Recommended Next Step
 
-Do not merge blindly. Use `docs/system/system-state.md` as the single control-plane view, then decide a controlled integration order for documentation, UI chain, and minimal backend core.
+Review PR diff and merge in task order after upstream PRs remain approved and mergeable.
