@@ -3,7 +3,6 @@
 import type { CSSProperties, FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { processDevCanvas } from "../../core/api/devcanvas";
-import type { DevCanvasSkill } from "../../types/skill";
 
 type WritingFlowState = "idle" | "generating" | "continuing_story" | "branching" | "refining";
 
@@ -59,15 +58,6 @@ const flowStateLabel: Record<WritingFlowState, string> = {
   continuing_story: "continuing the thread",
   branching: "holding a branch",
   refining: "refining the passage",
-};
-
-const inactiveSkillSlot: DevCanvasSkill = {
-  id: "skill-slot-inactive",
-  name: "Skill Slot (inactive placeholder)",
-  type: "global",
-  description: "Reserved for future skill orchestration. No execution is attached.",
-  scope: "global_writing_pipeline",
-  inactive: true,
 };
 
 const narrativeShellStyle: CSSProperties = {
@@ -447,11 +437,6 @@ function NarrativeUndercurrent({
               {memory}
             </div>
           ))}
-          <div style={{ ...whisperStyle, opacity: 0.72 }} role="note" aria-disabled="true">
-            <strong>{inactiveSkillSlot.name}</strong>
-            <br />
-            {inactiveSkillSlot.description}
-          </div>
         </div>
       </div>
       <ExplanationDisclosure explanation={explanation} />
@@ -578,7 +563,7 @@ export default function TianyiImmersiveWorkspace() {
     } catch (error) {
       setStreamedText((current) => {
         const message =
-          error instanceof Error ? error.message : "The continuation could not be written from the current kernel output.";
+          error instanceof Error ? error.message : "The continuation could not be written from the current passage.";
         return current ? `${current}\n\n[${message}]` : message;
       });
       setSessionState({
