@@ -60,16 +60,51 @@ const emergingSentenceStyle: CSSProperties = {
   padding: "1px 3px",
 };
 
+const systemLanguagePattern =
+  /(kernel|runtime|execution|graph|pipeline|debug|system|候选|预演|正史|事件线|女娲|证据|调度|执行|系统|风险：|需要确认)/i;
+
 function getWritingContinuationProcessor(): WritingContinuationProcessor {
   return processDevCanvas as WritingContinuationProcessor;
 }
 
-function normalizeContinuationResponse(response: WritingContinuationResponse): WritingContinuationResponse {
+function hasChineseText(value: string) {
+  return /[\u4e00-\u9fff]/.test(value);
+}
+
+function cleanSeedText(value: string) {
+  return value
+    .replace(/\s+/g, " ")
+    .replace(/^(写一个|继续写|续写|write|continue)\s*/i, "")
+    .trim();
+}
+
+function buildNarrativeFallback(seedText: string) {
+  const seed = cleanSeedText(seedText);
+
+  if (hasChineseText(seedText)) {
+    const image = seed || "那一幕";
+    return `${image}没有立刻结束。\n\n空气像被轻轻推开，人物的沉默先往前走了一步，下一句话还没有说出口，故事已经开始改变方向。`;
+  }
+
+  const image = seed || "the quiet image on the page";
+  return `The scene keeps ${image} close.\n\nA small silence gathers around it, and the next choice arrives before anyone is ready to name it.`;
+}
+
+function normalizeContinuationResponse(
+  response: WritingContinuationResponse,
+  seedText: string,
+): WritingContinuationResponse {
+  const rawText =
+    response.text === "mock narrative response" || response.text === "mock narrative continuation"
+      ? ""
+      : response.text?.trim();
   const continuationText =
-    response.text === "mock narrative response" ? "mock narrative continuation" : response.text;
+    rawText && !systemLanguagePattern.test(rawText)
+      ? rawText
+      : buildNarrativeFallback(seedText);
 
   return {
-    text: continuationText || "The scene waits for its next sentence.",
+    text: continuationText || buildNarrativeFallback(seedText),
   };
 }
 
@@ -145,7 +180,7 @@ function WritingInput({
       }}
     >
       <label className="dcw-input-label" htmlFor="tianyi-writing-input">
-        What happens next?
+        Continue the page
       </label>
       <textarea
         id="tianyi-writing-input"
@@ -156,9 +191,9 @@ function WritingInput({
         rows={6}
       />
       <div className="dcw-input-actions">
-        <span className="dcw-input-hint">Tianyi listens for the next beat.</span>
+        <span className="dcw-input-hint">Tianyi stays with the scene.</span>
         <button className="dcw-generate-button" type="submit" disabled={isGenerating}>
-          {isGenerating ? "Following the thread..." : "Let it continue"}
+          {isGenerating ? "Writing the next turn..." : "Let the story move"}
         </button>
       </div>
     </form>
@@ -190,7 +225,7 @@ function WritingCanvas({ streamedText, isWriting }: { streamedText: string; isWr
       ) : (
         <div className="dcw-empty-canvas">
           <p>The page is quiet.</p>
-          <span>Give it one image, one choice, or one line of dialogue.</span>
+          <span>Begin with one image, one choice, or one line of dialogue.</span>
         </div>
       )}
     </section>
@@ -299,7 +334,7 @@ export default function TianyiImmersiveWorkspace() {
         streamedText,
         carriedPassages,
       });
-      const response = normalizeContinuationResponse(await writingCompanion(continuationTrigger));
+      const response = normalizeContinuationResponse(await writingCompanion(continuationTrigger), trimmedInput);
       setInputText("");
       streamResponse(response as Required<WritingContinuationResponse>);
     } catch {
