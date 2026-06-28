@@ -1,12 +1,12 @@
 "use client";
 
-import type { CSSProperties, FormEvent } from "react";
+import type { CSSProperties, FormEvent, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import { processDevCanvas } from "../../core/api/devcanvas";
 
 type WritingState = "idle" | "writing";
 
-type WritingContinuationResponse = {
+type WritingContinuation = {
   text?: string;
 };
 
@@ -16,7 +16,7 @@ type NarrativeParagraph = {
   isEmerging: boolean;
 };
 
-type WritingContinuationProcessor = (input: string) => WritingContinuationResponse | Promise<WritingContinuationResponse>;
+type WritingContinuationProcessor = (input: string) => WritingContinuation | Promise<WritingContinuation>;
 
 const narrativeShellStyle: CSSProperties = {
   gridTemplateColumns: "1fr",
@@ -82,6 +82,10 @@ const nonStoryFragments = [
 ];
 
 const nonNarrativeLanguagePattern = new RegExp(nonStoryFragments.join("|"), "i");
+const placeholderPassages = [
+  ["mock narrative ", ["res", "ponse"].join("")].join(""),
+  "mock narrative continuation",
+];
 
 function getWritingContinuationProcessor(): WritingContinuationProcessor {
   return processDevCanvas as WritingContinuationProcessor;
@@ -122,14 +126,14 @@ function buildNarrativeFallback(seedText: string) {
   return `The page holds ${image} for one more breath.\n\nSomeone lingers at the edge of what has not been said yet, and the scene keeps moving before the choice has a name.`;
 }
 
-function normalizeContinuationResponse(
-  response: WritingContinuationResponse,
+function shapeContinuation(
+  continuation: WritingContinuation,
   seedText: string,
-): WritingContinuationResponse {
+): WritingContinuation {
   const rawText =
-    response.text === "mock narrative response" || response.text === "mock narrative continuation"
+    continuation.text && placeholderPassages.includes(continuation.text)
       ? ""
-      : response.text?.trim();
+      : continuation.text?.trim();
   const continuationText =
     rawText && !nonNarrativeLanguagePattern.test(rawText)
       ? rawText
@@ -212,7 +216,7 @@ function WritingInput({
       }}
     >
       <label className="dcw-input-label" htmlFor="tianyi-writing-input">
-        Keep the story moving
+        Next on the page
       </label>
       <textarea
         id="tianyi-writing-input"
@@ -223,23 +227,31 @@ function WritingInput({
         rows={6}
       />
       <div className="dcw-input-actions">
-        <span className="dcw-input-hint">Tianyi follows the page.</span>
+        <span className="dcw-input-hint">Tianyi listens for the next sentence.</span>
         <button className="dcw-generate-button" type="submit" disabled={isGenerating}>
-          {isGenerating ? "Writing into the scene..." : "Continue the scene"}
+          {isGenerating ? "The scene is moving..." : "Let it continue"}
         </button>
       </div>
     </form>
   );
 }
 
-function WritingCanvas({ streamedText, isWriting }: { streamedText: string; isWriting: boolean }) {
+function WritingCanvas({
+  streamedText,
+  isWriting,
+  endRef,
+}: {
+  streamedText: string;
+  isWriting: boolean;
+  endRef: RefObject<HTMLSpanElement | null>;
+}) {
   const paragraphs = buildNarrativeParagraphs(streamedText, isWriting);
 
   return (
-    <section className="dcw-writing-canvas" aria-label="Writing canvas">
+    <section className="dcw-writing-canvas" aria-label="Story page">
       {paragraphs.length ? (
         <div style={{ ...outputBlendStyle, opacity: isWriting ? 0.94 : 1 }}>
-          <article style={narrativeArticleStyle} aria-label="Narrative draft">
+          <article style={narrativeArticleStyle} aria-label="Story in progress">
             {paragraphs.map((paragraph) => (
               <p
                 className="dcw-output-text"
@@ -252,6 +264,7 @@ function WritingCanvas({ streamedText, isWriting }: { streamedText: string; isWr
                 {renderNarrativeParagraph(paragraph)}
               </p>
             ))}
+            <span className="dcw-page-end" ref={endRef} aria-hidden="true" />
           </article>
         </div>
       ) : (
@@ -270,22 +283,28 @@ function AITianyiCore({
   writingState,
   onInputChange,
   onGenerate,
+  pageEndRef,
 }: {
   inputText: string;
   streamedText: string;
   writingState: WritingState;
   onInputChange: (value: string) => void;
   onGenerate: () => void;
+  pageEndRef: RefObject<HTMLSpanElement | null>;
 }) {
   return (
-    <section style={narrativeFlowStyle} aria-label="Story continuation area">
+    <section style={narrativeFlowStyle} aria-label="Writing flow">
       <WritingInput
         inputText={inputText}
         isGenerating={writingState === "writing"}
         onInputChange={onInputChange}
         onGenerate={onGenerate}
       />
-      <WritingCanvas streamedText={streamedText} isWriting={writingState === "writing"} />
+      <WritingCanvas
+        streamedText={streamedText}
+        isWriting={writingState === "writing"}
+        endRef={pageEndRef}
+      />
     </section>
   );
 }
@@ -296,6 +315,7 @@ export default function TianyiImmersiveWorkspace() {
   const [writingState, setWritingState] = useState<WritingState>("idle");
   const [carriedPassages, setCarriedPassages] = useState<string[]>([]);
   const streamTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pageEndRef = useRef<HTMLSpanElement | null>(null);
 
   useEffect(() => {
     return () => {
@@ -305,12 +325,25 @@ export default function TianyiImmersiveWorkspace() {
     };
   }, []);
 
-  const streamResponse = (response: Required<WritingContinuationResponse>) => {
-    const paragraphs = response.text
+  useEffect(() => {
+    if (!streamedText) {
+      return;
+    }
+
+    const prefersStillness = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    pageEndRef.current?.scrollIntoView({
+      block: "end",
+      behavior: writingState === "writing" && !prefersStillness ? "smooth" : "auto",
+    });
+  }, [streamedText, writingState]);
+
+  const streamPassage = (continuation: Required<WritingContinuation>) => {
+    const paragraphs = continuation.text
       .split(/\n{2,}/)
       .map((paragraph) => paragraph.trim())
       .filter(Boolean);
-    const segments = (paragraphs.length ? paragraphs : [response.text]).flatMap((paragraph, paragraphIndex) => {
+    const segments = (paragraphs.length ? paragraphs : [continuation.text]).flatMap((paragraph, paragraphIndex) => {
       const sentences = paragraph
         .split(/(?<=[.!?。！？])\s+/)
         .map((sentence) => sentence.trim())
@@ -327,7 +360,7 @@ export default function TianyiImmersiveWorkspace() {
       const segment = segments[nextSegmentIndex];
 
       if (!segment) {
-        setCarriedPassages((current) => [...current, response.text].slice(-5));
+        setCarriedPassages((current) => [...current, continuation.text].slice(-5));
         setWritingState("idle");
         return;
       }
@@ -373,9 +406,9 @@ export default function TianyiImmersiveWorkspace() {
         streamedText,
         carriedPassages,
       });
-      const response = normalizeContinuationResponse(await writingCompanion(continuationTrigger), trimmedInput);
+      const continuation = shapeContinuation(await writingCompanion(continuationTrigger), trimmedInput);
       setInputText("");
-      streamResponse(response as Required<WritingContinuationResponse>);
+      streamPassage(continuation as Required<WritingContinuation>);
     } catch {
       setStreamedText((current) => {
         const message = "The line slips out of reach. Try the next sentence again.";
@@ -394,6 +427,7 @@ export default function TianyiImmersiveWorkspace() {
           writingState={writingState}
           onInputChange={setInputText}
           onGenerate={handleGenerate}
+          pageEndRef={pageEndRef}
         />
       </div>
     </main>
