@@ -1,0 +1,22 @@
+{
+  "name": "devcanvas-ai-writer",
+  "framework": "custom",
+  "entry": "app/tianyi",
+  "build": {
+    "command": "npm run build",
+    "outputDirectory": "app/tianyi"
+  },
+  "compatibility": {
+    "runtime": "node-and-edge-safe",
+    "nodejsCompat": false
+  },
+  "environment": {
+    "required": [],
+    "notes": "No environment variables are required for the current UI-only preview."
+  },
+  "preview": {
+    "sourceReading": true,
+    "worldModelDraftSchema": "types/worldModelDraft.ts",
+    "transformer": "app/tianyi/worldModelDraftTransformer.ts"
+  }
+}
