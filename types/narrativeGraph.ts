@@ -80,6 +80,7 @@ export type NarrativeGraphSnapshot = {
   relations: RelationEdge[];
   events: EventNode[];
   timeline: TimelineEdge[];
+  confidenceMap: Record<string, number>;
   constraints: {
     readOnly: true;
     writebackAllowed: false;
