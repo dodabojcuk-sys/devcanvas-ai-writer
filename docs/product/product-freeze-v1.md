@@ -16,6 +16,7 @@ DevCanvas is now treated as:
 FROZEN PRODUCT
 PRODUCT COMPLETE (v1)
 WRITE-ONLY EXPERIENCE SYSTEM
+PERMANENTLY MAINTENANCE-LOCKED SYSTEM
 ```
 
 It is not treated as:
@@ -25,6 +26,8 @@ evolving architecture research system
 experimental AI OS
 system expansion platform
 autonomous task chain
+general development environment
+feature expansion project
 ```
 
 ## 3. Frozen Completed Systems
@@ -50,6 +53,7 @@ These systems are frozen. They may be documented or maintained, but they must no
 
 Future work must not add:
 
+- new features
 - new system layers
 - new intelligence modules
 - new graph expansions
@@ -59,17 +63,23 @@ Future work must not add:
 - new architecture branches
 - new autonomous task chains
 - new experimental layers
+- new experimental modules
 - new execution concepts
+- new UI systems
+
+No feature expansion is allowed.
 
 No architecture expansion is allowed.
 
 No autonomous task generation is allowed.
 
-No experimental layer is allowed.
+No experimental layer or module is allowed.
 
 ## 5. Future Task Admission Rules
 
-Any future task must be one of:
+Any future task must be maintenance-class only.
+
+A future task must be one of:
 
 - UI-only polish
 - bugfix-only correction
@@ -80,22 +90,28 @@ Any future task must be one of:
 
 Any task that touches graph, system, kernel, runtime, snapshot, skill, workflow, autonomous execution, or intelligence expansion is forbidden by default.
 
+Any task that introduces a new feature, new system, new UI layer, new execution path, or new product capability is forbidden by default.
+
 ## 6. Hard Guardrails
 
 The following changes are forbidden:
 
+- new feature development
+- architecture modification
 - kernel modification
 - runtime modification
 - system modification
 - graph or snapshot modification
-- skill or workflow modification
+- graph, snapshot, skill, or workflow addition
 - intelligence layer expansion
 - world model expansion
 - autonomous task generation
+- UI system expansion
 - new UI layers
 - new backend logic
 - new execution path
 - new architecture layer
+- experimental modules
 
 If a future task appears to require one of these changes, the task must be rejected rather than expanded.
 
@@ -103,16 +119,53 @@ If a future task appears to require one of these changes, the task must be rejec
 
 Future work is limited to:
 
-- bug fixes
 - UI polish
-- performance improvements
+- bug fixes
+- performance optimization
 - readability improvements
-- documentation corrections
-- test or validation improvements that do not change architecture
+- documentation updates
+- validation improvements that do not change structure
 
 Allowed work must preserve the pure writing experience.
 
-## 8. GitHub Behavior
+Allowed work must not modify execution architecture.
+
+Allowed work must not introduce new systems.
+
+## 8. PR Gate Rule
+
+Every future PR must pass the Product Freeze PR Gate:
+
+- PR must be maintenance-class only.
+- PR must not introduce new systems.
+- PR must not introduce new features.
+- PR must not modify execution architecture.
+- PR must not change kernel/runtime/system behavior.
+- PR must not add graph/snapshot/skill/workflow capabilities.
+- PR must not add intelligence layers, experimental modules, or UI systems.
+
+A PR that fails any gate must be rejected.
+
+## 9. Review Hard Constraint
+
+ChatGPT must reject any expansion-type PR.
+
+ChatGPT may only approve maintenance-level changes.
+
+Expansion-type PRs include:
+
+- feature expansion
+- architecture expansion
+- kernel/runtime/system modification
+- graph/snapshot/skill/workflow addition
+- UI system expansion
+- intelligence layer expansion
+- experimental module addition
+- autonomous task-chain revival
+
+Review must preserve the maintenance-only product state.
+
+## 10. GitHub Behavior
 
 Default GitHub behavior changes from:
 
@@ -123,14 +176,14 @@ PR -> next task suggestion -> task chain continues
 to:
 
 ```text
-PR -> review -> product stabilization only
+PR -> maintenance gate -> review -> product stabilization only
 ```
 
 Future PRs must not include a `NEXT TASK SUGGESTION BLOCK` by default.
 
 If a future task is required, it must be explicitly requested and must fit the allowed future work list.
 
-## 9. UI Product Rule
+## 11. UI Product Rule
 
 Tianyi must remain a pure writing surface.
 
@@ -144,6 +197,8 @@ The UI must not reintroduce:
 - execution labels
 - cockpit panels
 - control dashboards
+- system panels
+- development-tool language
 
 The product should continue to feel like:
 
@@ -157,26 +212,29 @@ not:
 a system being operated
 ```
 
-## 10. Relationship To Previous Protocols
+## 12. Relationship To Previous Protocols
 
 This freeze overrides the default behavior of:
 
 - `docs/protocol/autonomous-task-pipeline-v1.md`
+- `docs/protocol/github-dev-protocol-v1.md`
 
-It does not delete that protocol. It suspends it for normal product work.
+It does not delete those protocols. It restricts them to maintenance-only product work.
 
-## 11. Release Readiness Meaning
+## 13. Release Readiness Meaning
 
 Stable Product Mode means:
 
-- DevCanvas architecture is not expanding
+- DevCanvas architecture is frozen
+- no evolution path exists
+- only stability maintenance is allowed
 - product identity is locked
 - system boundaries are locked
 - future work is corrective or polishing only
 - GitHub remains the source of truth
-- no active evolution path exists
+- DevCanvas is no longer a development environment
 
-## 12. Non-Goals
+## 14. Non-Goals
 
 This freeze does not:
 
