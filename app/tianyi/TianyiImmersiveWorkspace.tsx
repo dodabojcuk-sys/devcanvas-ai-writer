@@ -6,31 +6,23 @@ import { processDevCanvas } from "../../core/api/devcanvas";
 
 type WritingFlowState = "idle" | "generating" | "continuing_story" | "branching" | "refining";
 
-type KernelEventCandidate = {
+type StoryBeatCandidate = {
   type: "event_line_candidate";
   title: string;
   confidence: number;
 };
 
-type KernelSessionState = {
+type StoryThreadState = {
   chapter: string;
   continuity: string;
 };
 
-type DevCanvasExplanation = {
-  intent: string;
-  reasoning: string[];
-  systemFlow: string[];
-  decisionPoints: string[];
-  fallbackReasons?: string[];
-};
-
-type KernelStructuredResponse = {
+type WritingContinuationResponse = {
   text: string;
   suggestions: string[];
-  events: KernelEventCandidate[];
-  sessionState: KernelSessionState;
-  explanation?: DevCanvasExplanation;
+  events: StoryBeatCandidate[];
+  sessionState: StoryThreadState;
+  explanation?: unknown;
 };
 
 type NarrativeParagraph = {
@@ -39,9 +31,9 @@ type NarrativeParagraph = {
   isEmerging: boolean;
 };
 
-type KernelProcessor = (input: string, context?: any) => KernelStructuredResponse | Promise<KernelStructuredResponse>;
+type WritingContinuationProcessor = (input: string, context?: any) => WritingContinuationResponse | Promise<WritingContinuationResponse>;
 
-const defaultSessionState: KernelSessionState = {
+const defaultStoryThread: StoryThreadState = {
   chapter: "unplaced scene",
   continuity: "waiting for the next thread",
 };
@@ -58,16 +50,10 @@ const narrativeFlowStyle: CSSProperties = {
   gap: 18,
 };
 
-const ambienceStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "1fr",
-  gap: 10,
-};
-
 const outputBlendStyle: CSSProperties = {
   opacity: 1,
   transform: "translateY(0)",
-  transition: "opacity 260ms ease, transform 260ms ease",
+  transition: "opacity 320ms ease, transform 320ms ease",
 };
 
 const narrativeArticleStyle: CSSProperties = {
@@ -94,28 +80,11 @@ const emergingSentenceStyle: CSSProperties = {
   padding: "1px 3px",
 };
 
-const explainabilityStyle: CSSProperties = {
-  borderLeft: "2px solid rgb(137 153 143 / 68%)",
-  color: "#354139",
-  padding: "10px 0 0 14px",
-};
-
-const explainabilitySummaryStyle: CSSProperties = {
-  cursor: "pointer",
-  fontWeight: 600,
-};
-
-const explanationListStyle: CSSProperties = {
-  margin: "10px 0 0",
-  paddingLeft: 18,
-  lineHeight: 1.55,
-};
-
-function getKernelProcessor(): KernelProcessor {
-  return processDevCanvas as KernelProcessor;
+function getWritingContinuationProcessor(): WritingContinuationProcessor {
+  return processDevCanvas as WritingContinuationProcessor;
 }
 
-function normalizeKernelResponse(response: KernelStructuredResponse): KernelStructuredResponse {
+function normalizeContinuationResponse(response: WritingContinuationResponse): WritingContinuationResponse {
   const continuationText =
     response.text === "mock narrative response" ? "mock narrative continuation" : response.text;
 
@@ -179,12 +148,12 @@ function buildContinuationTrigger({
   input,
   streamedText,
   storyContext,
-  sessionState,
+  storyThread,
 }: {
   input: string;
   streamedText: string;
   storyContext: string[];
-  sessionState: KernelSessionState;
+  storyThread: StoryThreadState;
 }) {
   const recentContext = storyContext.slice(-3).join("\n\n");
   const currentDraftTail = streamedText.trim().slice(-900);
@@ -193,7 +162,7 @@ function buildContinuationTrigger({
     "Continue this story as the next narrative beat, not as an answer.",
     recentContext ? `Previous carried context:\n${recentContext}` : null,
     currentDraftTail ? `Current draft tail:\n${currentDraftTail}` : null,
-    `Session: ${sessionState.chapter} / ${sessionState.continuity}`,
+    `Story thread: ${storyThread.chapter} / ${storyThread.continuity}`,
     `Continuation trigger:\n${input}`,
   ]
     .filter(Boolean)
@@ -220,20 +189,20 @@ function WritingInput({
       }}
     >
       <label className="dcw-input-label" htmlFor="tianyi-writing-input">
-        Continue the story
+        What happens next?
       </label>
       <textarea
         id="tianyi-writing-input"
         className="dcw-input-field"
         value={inputText}
         onChange={(event) => onInputChange(event.target.value)}
-        placeholder="Add the next image, choice, or line of dialogue."
+        placeholder="A flicker of neon, a withheld answer, a door left half open..."
         rows={6}
       />
       <div className="dcw-input-actions">
-        <span className="dcw-input-hint">The next line will carry the draft forward.</span>
+        <span className="dcw-input-hint">Tianyi listens for the next beat.</span>
         <button className="dcw-generate-button" type="submit" disabled={isGenerating}>
-          {isGenerating ? "Writing..." : "Continue story"}
+          {isGenerating ? "Following the thread..." : "Let it continue"}
         </button>
       </div>
     </form>
@@ -264,43 +233,10 @@ function WritingCanvas({ streamedText, isWriting }: { streamedText: string; isWr
         </div>
       ) : (
         <div className="dcw-empty-canvas">
-          <p>The story is waiting for its first motion.</p>
-          <span>Start with an image, a choice, or a line of dialogue. The story will keep carrying it.</span>
+          <p>The page is quiet.</p>
+          <span>Give it one image, one choice, or one line of dialogue.</span>
         </div>
       )}
-    </section>
-  );
-}
-
-function ExplanationDisclosure({ explanation }: { explanation?: DevCanvasExplanation }) {
-  if (!explanation?.reasoning.length) {
-    return null;
-  }
-
-  return (
-    <details style={explainabilityStyle}>
-      <summary style={explainabilitySummaryStyle}>Why this continuation?</summary>
-      <ul style={explanationListStyle}>
-        {explanation.reasoning.map((reason) => (
-          <li key={reason}>{reason}</li>
-        ))}
-      </ul>
-    </details>
-  );
-}
-
-function NarrativeUndercurrent({
-  explanation,
-}: {
-  explanation?: DevCanvasExplanation;
-}) {
-  if (process.env.NODE_ENV !== "development") {
-    return null;
-  }
-
-  return (
-    <section style={ambienceStyle} aria-label="Continuation notes">
-      <ExplanationDisclosure explanation={explanation} />
     </section>
   );
 }
@@ -334,9 +270,8 @@ function AITianyiCore({
 export default function TianyiImmersiveWorkspace() {
   const [inputText, setInputText] = useState("");
   const [streamedText, setStreamedText] = useState("");
-  const [kernelResponse, setKernelResponse] = useState<KernelStructuredResponse | null>(null);
   const [flowState, setFlowState] = useState<WritingFlowState>("idle");
-  const [sessionState, setSessionState] = useState<KernelSessionState>(defaultSessionState);
+  const [storyThread, setStoryThread] = useState<StoryThreadState>(defaultStoryThread);
   const [storyContext, setStoryContext] = useState<string[]>([]);
   const streamTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -348,20 +283,29 @@ export default function TianyiImmersiveWorkspace() {
     };
   }, []);
 
-  const streamResponse = (response: KernelStructuredResponse, nextFlowState: Exclude<WritingFlowState, "idle" | "generating">) => {
-    const sentences = response.text
-      .split(/(?<=[.!?])\s+/)
-      .map((sentence) => sentence.trim())
+  const streamResponse = (response: WritingContinuationResponse, nextFlowState: Exclude<WritingFlowState, "idle" | "generating">) => {
+    const paragraphs = response.text
+      .split(/\n{2,}/)
+      .map((paragraph) => paragraph.trim())
       .filter(Boolean);
-    const segments = sentences.length ? sentences : response.text.split("\n\n");
+    const segments = (paragraphs.length ? paragraphs : [response.text]).flatMap((paragraph, paragraphIndex) => {
+      const sentences = paragraph
+        .split(/(?<=[.!?。！？])\s+/)
+        .map((sentence) => sentence.trim())
+        .filter(Boolean);
+
+      return (sentences.length ? sentences : [paragraph]).map((sentence, sentenceIndex) => ({
+        text: sentence,
+        startsParagraph: paragraphIndex > 0 || sentenceIndex === 0,
+      }));
+    });
     let nextSegmentIndex = 0;
 
     const pushNextSegment = () => {
       const segment = segments[nextSegmentIndex];
 
       if (!segment) {
-        setKernelResponse(response);
-        setSessionState(response.sessionState);
+        setStoryThread(response.sessionState);
         setStoryContext((current) => [...current, response.text].slice(-5));
         setFlowState(nextFlowState);
         return;
@@ -369,13 +313,13 @@ export default function TianyiImmersiveWorkspace() {
 
       setStreamedText((current) => {
         if (!current) {
-          return segment;
+          return segment.text;
         }
 
-        return nextSegmentIndex === 0 ? `${current}\n\n${segment}` : `${current} ${segment}`;
+        return segment.startsParagraph ? `${current}\n\n${segment.text}` : `${current} ${segment.text}`;
       });
       nextSegmentIndex += 1;
-      streamTimer.current = setTimeout(pushNextSegment, 300);
+      streamTimer.current = setTimeout(pushNextSegment, 280);
     };
 
     pushNextSegment();
@@ -383,7 +327,7 @@ export default function TianyiImmersiveWorkspace() {
 
   const handleGenerate = async () => {
     const trimmedInput = inputText.trim();
-    const kernelProcessor = getKernelProcessor();
+    const writingCompanion = getWritingContinuationProcessor();
     const nextFlowState = getNextWritingFlowState(trimmedInput);
 
     if (!trimmedInput || flowState === "generating") {
@@ -394,8 +338,7 @@ export default function TianyiImmersiveWorkspace() {
       clearTimeout(streamTimer.current);
     }
 
-    setKernelResponse(null);
-    setSessionState({
+    setStoryThread({
       chapter: "the current passage",
       continuity: storyContext.length ? "carrying the previous thread" : "finding the first thread",
     });
@@ -406,25 +349,24 @@ export default function TianyiImmersiveWorkspace() {
         input: trimmedInput,
         streamedText,
         storyContext,
-        sessionState,
+        storyThread,
       });
-      const response = normalizeKernelResponse(
-        await kernelProcessor(continuationTrigger, {
+      const response = normalizeContinuationResponse(
+        await writingCompanion(continuationTrigger, {
           source: "tianyi-ui",
           flowState: nextFlowState,
-          sessionState,
+          storyThread,
           storyContextSize: storyContext.length,
         }),
       );
       setInputText("");
       streamResponse(response, nextFlowState);
-    } catch (error) {
+    } catch {
       setStreamedText((current) => {
-        const message =
-          error instanceof Error ? error.message : "The continuation could not be written from the current passage.";
-        return current ? `${current}\n\n[${message}]` : message;
+        const message = "The line slips out of reach. Try the next sentence again.";
+        return current ? `${current}\n\n${message}` : message;
       });
-      setSessionState({
+      setStoryThread({
         chapter: "interrupted passage",
         continuity: "output not rendered",
       });
@@ -442,7 +384,6 @@ export default function TianyiImmersiveWorkspace() {
           onInputChange={setInputText}
           onGenerate={handleGenerate}
         />
-        <NarrativeUndercurrent explanation={kernelResponse?.explanation} />
       </div>
     </main>
   );
