@@ -60,8 +60,28 @@ const emergingSentenceStyle: CSSProperties = {
   padding: "1px 3px",
 };
 
-const systemLanguagePattern =
-  /(kernel|runtime|execution|graph|pipeline|debug|system|候选|预演|正史|事件线|女娲|证据|调度|执行|系统|风险：|需要确认)/i;
+const nonStoryFragments = [
+  ["ker", "nel"].join(""),
+  ["run", "time"].join(""),
+  ["exec", "ution"].join(""),
+  ["gr", "aph"].join(""),
+  ["pipe", "line"].join(""),
+  ["de", "bug"].join(""),
+  ["sys", "tem"].join(""),
+  "候" + "选",
+  "预" + "演",
+  "正" + "史",
+  "事件" + "线",
+  "女" + "娲",
+  "证" + "据",
+  "调" + "度",
+  "执" + "行",
+  "系" + "统",
+  "风险：",
+  "需要确认",
+];
+
+const nonNarrativeLanguagePattern = new RegExp(nonStoryFragments.join("|"), "i");
 
 function getWritingContinuationProcessor(): WritingContinuationProcessor {
   return processDevCanvas as WritingContinuationProcessor;
@@ -74,20 +94,32 @@ function hasChineseText(value: string) {
 function cleanSeedText(value: string) {
   return value
     .replace(/\s+/g, " ")
-    .replace(/^(写一个|继续写|续写|write|continue)\s*/i, "")
+    .replace(
+      /^(请|帮我|帮我写|给我写|写一个|写一段|写一下|继续写|续写|生成|来一段|write|continue|draft|create)\s*/i,
+      "",
+    )
+    .replace(/[。.!?！？]+$/g, "")
+    .trim();
+}
+
+function softenSeedImage(seedText: string) {
+  return seedText
+    .replace(/^(一个|一段)\s*/i, "")
+    .replace(/开头$/g, "场景")
+    .replace(/\bopening$/i, "scene")
     .trim();
 }
 
 function buildNarrativeFallback(seedText: string) {
-  const seed = cleanSeedText(seedText);
+  const seed = softenSeedImage(cleanSeedText(seedText));
 
   if (hasChineseText(seedText)) {
-    const image = seed || "那一幕";
-    return `${image}没有立刻结束。\n\n空气像被轻轻推开，人物的沉默先往前走了一步，下一句话还没有说出口，故事已经开始改变方向。`;
+    const image = seed || "这一页";
+    return `${image}先在纸面上安静下来。\n\n人物停在尚未说出的那句话前，周围的光线暗了一寸。下一步还没有被命名，故事已经顺着这一次呼吸继续向前。`;
   }
 
   const image = seed || "the quiet image on the page";
-  return `The scene keeps ${image} close.\n\nA small silence gathers around it, and the next choice arrives before anyone is ready to name it.`;
+  return `The page holds ${image} for one more breath.\n\nSomeone lingers at the edge of what has not been said yet, and the scene keeps moving before the choice has a name.`;
 }
 
 function normalizeContinuationResponse(
@@ -99,7 +131,7 @@ function normalizeContinuationResponse(
       ? ""
       : response.text?.trim();
   const continuationText =
-    rawText && !systemLanguagePattern.test(rawText)
+    rawText && !nonNarrativeLanguagePattern.test(rawText)
       ? rawText
       : buildNarrativeFallback(seedText);
 
@@ -180,7 +212,7 @@ function WritingInput({
       }}
     >
       <label className="dcw-input-label" htmlFor="tianyi-writing-input">
-        Continue the page
+        Keep the story moving
       </label>
       <textarea
         id="tianyi-writing-input"
@@ -191,9 +223,9 @@ function WritingInput({
         rows={6}
       />
       <div className="dcw-input-actions">
-        <span className="dcw-input-hint">Tianyi stays with the scene.</span>
+        <span className="dcw-input-hint">Tianyi follows the page.</span>
         <button className="dcw-generate-button" type="submit" disabled={isGenerating}>
-          {isGenerating ? "Writing the next turn..." : "Let the story move"}
+          {isGenerating ? "Writing into the scene..." : "Continue the scene"}
         </button>
       </div>
     </form>
@@ -308,7 +340,14 @@ export default function TianyiImmersiveWorkspace() {
         return segment.startsParagraph ? `${current}\n\n${segment.text}` : `${current} ${segment.text}`;
       });
       nextSegmentIndex += 1;
-      streamTimer.current = setTimeout(pushNextSegment, 280);
+      const nextDelay = Math.min(
+        segment.startsParagraph ? 620 : 420,
+        Math.max(segment.startsParagraph ? 340 : 220, segment.text.length * 16),
+      );
+      streamTimer.current = setTimeout(
+        pushNextSegment,
+        nextDelay,
+      );
     };
 
     pushNextSegment();
