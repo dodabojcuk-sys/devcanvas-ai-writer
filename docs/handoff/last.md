@@ -1,40 +1,99 @@
 # DevCanvas Latest Handoff
 
-Snapshot time: 2026-06-28 09:55:00 Asia/Shanghai
-Snapshot branch: `task-017-narrative-identity-lock`
-Base branch: `task-016-product-stability-ux-lock`
+Snapshot time: 2026-06-28 15:42:37 CST
+Snapshot branch: `task-027-product-freeze-integrity-lock`
+Base branch: `task-026-production-writing-product-finalize`
 
 ## Current Overall State
 
-DevCanvas is in the product identity lock phase. The active branch keeps the unified execution API and explainability data path from earlier tasks, while the default Tianyi UI now behaves as a writing surface instead of a system interface.
+DevCanvas is in frozen product mode.
 
-## Latest Task
-
-- Task 017: Narrative identity lock.
-- Handoff report: `docs/handoff/task-017.md`.
+The system is stable, production-oriented, and no longer has an active evolution path. Future work is maintenance-only unless explicitly reclassified by a human product decision.
 
 ## Current Product Position
 
-- Tianyi remains the only visible writing entry.
-- AI output is framed as story continuation.
-- Explanation is hidden from the default UI and only available in development mode.
-- EventLine, Nuwa, Evidence, execution graph, and internal execution structure are not exposed as default UI surfaces.
+DevCanvas is now:
+
+```text
+FROZEN PRODUCT
+PRODUCT COMPLETE (v1)
+WRITE-ONLY EXPERIENCE SYSTEM
+```
+
+The default experience is a pure Tianyi writing surface. The product should feel like a story being written, not a system being operated.
+
+## Writing Flow Status
+
+- Writing flow is production-ready for v1.
+- Tianyi is the only visible writing entry.
+- Input -> continuation output remains the core experience.
+- Output is framed as story continuation.
+- Paragraph-aware sentence streaming is preserved.
+- No visible system/debug/explanation/graph/session/meta layer should be reintroduced.
+
+## Frozen Systems
+
+The following systems are considered complete and frozen:
+
+- writing system
+- kernel/runtime/system isolation
+- execution graph
+- explainability data path
+- UX lock
+- world model contract
+- snapshot assembler
+- visualization design layer
+- boundary freeze
+- stability validation
+- GitHub workflow
+- autonomous task pipeline documentation
+
+These systems may be maintained or documented, but they must not be expanded.
+
+## Maintenance-Only Rule
+
+Allowed future work:
+
+- UI-only polish
+- bugfix-only correction
+- performance improvement without architecture change
+- readability improvement without architecture change
+- documentation correction
+- validation improvement without architecture change
+
+Forbidden future work:
+
+- kernel changes
+- runtime changes
+- system changes
+- graph/snapshot changes
+- skill/workflow changes
+- intelligence layer expansion
+- new UI layers
+- new execution concepts
+- autonomous task generation
+- architecture expansion
+- experimental layers
 
 ## Impact Summary
 
-- Kernel: no logic changes.
-- Runtime: no logic changes.
-- System: no logic changes.
-- UI: default visible surface simplified to writing input plus narrative canvas.
+- Kernel: frozen; no future modification allowed by default.
+- Runtime: frozen; no future modification allowed by default.
+- System: frozen; no future modification allowed by default.
+- Graph/Snapshot: frozen; no future modification allowed by default.
+- UI: maintenance-only; writing polish is allowed only when it preserves the pure writing surface.
+- Workflow: autonomous task chaining remains suspended.
 
-## Validation Summary
+## Safety Check Summary
 
-- Static visible-copy scan completed for removed system-facing UI strings.
-- Static assertion confirmed development-only explanation rendering.
-- Node 24 type-stripping syntax checks completed for core TS files.
-- Static assertion confirmed unified API continuation wording.
-- Full TSX compile/build was not run because the branch has no `package.json`, React dependency, or TypeScript build harness.
+- System is stable.
+- Writing flow is production-ready.
+- No active evolution paths remain.
+- Only maintenance is allowed.
+- Product Freeze remains the controlling governance document.
 
 ## Recommended Next Step
 
-Review PR diff and merge in task order after upstream PRs remain approved and mergeable.
+No automatic next task.
+
+Review and merge only in task order. After merge, DevCanvas should remain in maintenance mode unless a human explicitly opens a new product decision.
