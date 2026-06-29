@@ -35,7 +35,16 @@ export function createMemorySessionStateStore(initial: WritingSessionState[] = [
 }
 
 function browserStorage(): Storage | null {
-  return typeof globalThis.localStorage === "undefined" ? null : globalThis.localStorage
+  if (typeof globalThis.localStorage === "undefined") return null
+  const storage = globalThis.localStorage
+  if (
+    typeof storage.getItem !== "function" ||
+    typeof storage.setItem !== "function" ||
+    typeof storage.removeItem !== "function"
+  ) {
+    return null
+  }
+  return storage
 }
 
 export function loadSavedWritingSession(): WritingSessionState | null {
